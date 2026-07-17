@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Presca — Product Designer & AI-Native Builder</title>
+  <meta name="description" content="Presca is a product designer and AI-native builder who notices the little things and turns them into calm, delightful products." />
+  <meta property="og:title" content="Presca — Product Designer & AI-Native Builder" />
+  <meta property="og:description" content="Calm, delightful products, designed and built with AI at my side." />
+  <meta name="theme-color" content="#a9d7f2" />
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>☁️</text></svg>" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+
+  <script type="importmap">
+    { "imports": { "three": "./js/vendor/three.module.js" } }
+  </script>
+</head>
+<body>
+
+  <!-- ═══════════════ Loader ═══════════════ -->
+  <div class="loader" id="loader" aria-hidden="true">
+    <div class="loader__orb"></div>
+    <p class="loader__text">gathering clouds…</p>
+  </div>
+
+  <!-- Sky backdrop: its colors travel from day to night as you scroll -->
+  <div class="sky-backdrop" aria-hidden="true"></div>
+
+  <!-- WebGL canvas: clouds by day, stars by night -->
+  <canvas id="scene" aria-hidden="true"></canvas>
+
+  <!-- Film grain for softness -->
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- ═══════════════ Nav ═══════════════ -->
+  <header class="nav" id="nav">
+    <a class="nav__logo" href="#hero" aria-label="Presca — back to top">
+      presca <span class="nav__spark">✦</span>
+    </a>
+    <nav class="nav__links" aria-label="Sections">
+      <a href="#journey">journey</a>
+      <a href="#craft">craft</a>
+      <a href="#work">work</a>
+      <a href="#contact">hello</a>
+    </nav>
+    <button class="sound-toggle" id="soundToggle" aria-pressed="false" aria-label="Toggle ambient music">
+      <span class="sound-toggle__bars" aria-hidden="true">
+        <i></i><i></i><i></i><i></i>
+      </span>
+      <span class="sound-toggle__label">sound</span>
+    </button>
+  </header>
+
+  <main id="main">
+
+    <!-- ═══════════════ Hero · morning sky ═══════════════ -->
+    <section class="hero" id="hero" data-theme="light">
+      <div class="hero__inner">
+        <p class="hero__eyebrow reveal-line">a soft place on the internet, kept by</p>
+        <h1 class="hero__name" aria-label="Presca">
+          <span class="hero__letter">P</span><span class="hero__letter">r</span><span class="hero__letter">e</span><span class="hero__letter">s</span><span class="hero__letter">c</span><span class="hero__letter">a</span>
+        </h1>
+        <div class="hero__roles" aria-live="polite">
+          <span class="hero__roles-static">i am a&nbsp;</span>
+          <span class="hero__role" id="roleRotator">product designer</span>
+        </div>
+        <p class="hero__line reveal-line">
+          I notice the little things — then, with AI at my side,<br class="br-desktop" />
+          I build them into calm, delightful products.
+        </p>
+        <p class="hero__hint reveal-line">psst — try clicking the sky <span class="wonder" data-wonder="Clouds are just the sky daydreaming." tabindex="0" role="button" aria-label="A little wonder">✦</span></p>
+      </div>
+      <a class="hero__scroll" href="#observe" aria-label="Scroll to begin">
+        <span class="hero__scroll-dot"></span>
+      </a>
+    </section>
+
+    <!-- ═══════════════ Observe · the watching eye ═══════════════ -->
+    <section class="observe section" id="observe" data-theme="light">
+      <div class="observe__inner">
+        <div class="observe__eye-wrap" aria-hidden="true">
+          <svg class="observe__eye" id="eye" viewBox="0 0 200 120" width="200" height="120">
+            <path class="eye__lid" d="M10,60 Q100,-20 190,60 Q100,140 10,60 Z" />
+            <circle class="eye__iris" id="iris" cx="100" cy="60" r="26" />
+            <circle class="eye__pupil" id="pupil" cx="100" cy="60" r="11" />
+            <circle class="eye__glint" id="glint" cx="108" cy="52" r="4" />
+            <path class="eye__lid-top" d="M10,60 Q100,-20 190,60" />
+            <path class="eye__lid-bottom" d="M10,60 Q100,140 190,60" />
+          </svg>
+        </div>
+        <h2 class="section__title split-words">I observe. I ponder. I create.</h2>
+        <p class="section__lede split-words">
+          Attention is my first design tool. I watch how people pause, where they
+          smile, what they almost say — the quiet details most products walk past.
+          Then I sit with them, turn them over, and shape them into something
+          people can hold. <span class="wonder" data-wonder="You noticed the eye noticing you. We're even now." tabindex="0" role="button" aria-label="A little wonder">✦</span>
+        </p>
+        <ul class="observe__trio">
+          <li class="observe__card">
+            <span class="observe__card-glyph" aria-hidden="true">◌</span>
+            <h3>Observe</h3>
+            <p>Slow looking. User research, field notes, and the patience to let a problem show itself.</p>
+          </li>
+          <li class="observe__card">
+            <span class="observe__card-glyph" aria-hidden="true">✧</span>
+            <h3>Ponder</h3>
+            <p>Sharp thinking. Framing, questioning, and playing with an idea until it clicks into place.</p>
+          </li>
+          <li class="observe__card">
+            <span class="observe__card-glyph" aria-hidden="true">❋</span>
+            <h3>Create</h3>
+            <p>Real making. Design, prototype, and ship — moving at the speed of AI, guided by taste.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ═══════════════ Journey · the river ═══════════════ -->
+    <section class="journey section" id="journey" data-theme="light">
+      <div class="journey__inner">
+        <h2 class="section__title split-words">The river so far</h2>
+        <p class="section__lede split-words">
+          Careers aren't ladders. Mine flows more like water — finding its own way,
+          picking up light as it goes.
+        </p>
+
+        <div class="journey__river-wrap">
+          <svg class="journey__river" id="riverSvg" viewBox="0 0 400 1600" preserveAspectRatio="xMidYMin meet" aria-hidden="true">
+            <defs>
+              <linearGradient id="riverGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#7fc4e8" />
+                <stop offset="0.5" stop-color="#9db8ec" />
+                <stop offset="1" stop-color="#b79ae0" />
+              </linearGradient>
+            </defs>
+            <path id="riverPath" d="M200,0 C120,150 300,260 220,420 C140,580 320,700 230,880 C150,1040 300,1150 210,1320 C150,1440 240,1520 200,1600"
+                  fill="none" stroke="url(#riverGrad)" stroke-width="7" stroke-linecap="round" />
+            <path id="riverShimmer" d="M200,0 C120,150 300,260 220,420 C140,580 320,700 230,880 C150,1040 300,1150 210,1320 C150,1440 240,1520 200,1600"
+                  fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.65" />
+          </svg>
+
+          <ol class="journey__stops">
+            <li class="journey__stop">
+              <span class="journey__stone" aria-hidden="true"></span>
+              <div class="journey__card">
+                <span class="journey__tag">the source</span>
+                <h3>UX Designer</h3>
+                <p>Years of listening — research, flows, wireframes, usability. Learning that good design starts with paying attention, not with pixels.</p>
+              </div>
+            </li>
+            <li class="journey__stop">
+              <span class="journey__stone" aria-hidden="true"></span>
+              <div class="journey__card">
+                <span class="journey__tag">gathering speed</span>
+                <h3>Product Designer</h3>
+                <p>Zooming out from screens to systems. Owning problems end-to-end — strategy, story, and craft — and caring about what ships, not just what's mocked.</p>
+              </div>
+            </li>
+            <li class="journey__stop">
+              <span class="journey__stone" aria-hidden="true"></span>
+              <div class="journey__card">
+                <span class="journey__tag">a new current</span>
+                <h3>Building with AI</h3>
+                <p>AI turned my sketches into software. I design <em>and</em> build now — pairing with AI tools to explore wider, prototype in hours, and ship what I imagine.</p>
+              </div>
+            </li>
+            <li class="journey__stop">
+              <span class="journey__stone" aria-hidden="true"></span>
+              <div class="journey__card">
+                <span class="journey__tag">open water</span>
+                <h3>Solopreneur</h3>
+                <p>My own path, my own products. Small, thoughtful things made with childlike wonder and grown-up rigor — released into the world under my own name.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ Craft · the garden (dusk) ═══════════════ -->
+    <section class="craft section" id="craft" data-theme="light">
+      <div class="craft__inner">
+        <h2 class="section__title split-words">A garden of craft</h2>
+        <p class="section__lede split-words">
+          Skills grow like flowers — slowly, then all at once.
+          Brush past them and see. <span class="wonder" data-wonder="Every flower here bloomed for you specifically." tabindex="0" role="button" aria-label="A little wonder">✦</span>
+        </p>
+
+        <div class="craft__garden" id="garden">
+          <!-- Flowers are generated by JS for variety; labels below -->
+        </div>
+
+        <div class="craft__flow">
+          <h3 class="craft__flow-title">How I move with AI</h3>
+          <ol class="craft__flow-steps">
+            <li><span class="craft__flow-num">01</span><strong>Wonder</strong><em>a noticing becomes a question</em></li>
+            <li><span class="craft__flow-num">02</span><strong>Explore with AI</strong><em>twenty directions before lunch</em></li>
+            <li><span class="craft__flow-num">03</span><strong>Shape</strong><em>taste picks; craft refines</em></li>
+            <li><span class="craft__flow-num">04</span><strong>Build &amp; ship</strong><em>prototype to product, solo</em></li>
+          </ol>
+          <p class="craft__flow-note">
+            This very site was designed and built the same way — me and my AI
+            collaborators, from first sketch to final commit.
+          </p>
+        </div>
+      </div>
+
+      <div class="craft__marquee" aria-label="Tools I work with">
+        <div class="craft__marquee-track">
+          <span>Figma ✦ Claude ✦ Cursor ✦ ChatGPT ✦ Midjourney ✦ Framer ✦ GSAP ✦ Three.js ✦ Notion ✦ Runway ✦ v0 ✦ Webflow ✦&nbsp;</span>
+          <span aria-hidden="true">Figma ✦ Claude ✦ Cursor ✦ ChatGPT ✦ Midjourney ✦ Framer ✦ GSAP ✦ Three.js ✦ Notion ✦ Runway ✦ v0 ✦ Webflow ✦&nbsp;</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ Work · constellations (night) ═══════════════ -->
+    <section class="work section" id="work" data-theme="dark">
+      <div class="work__inner">
+        <h2 class="section__title split-words">Constellations</h2>
+        <p class="section__lede split-words">
+          Every project starts as scattered points of light — observations, hunches,
+          half-ideas. My work is drawing the lines between them. Hover to connect the stars.
+          <span class="wonder" data-wonder="Stars don't actually twinkle — our atmosphere does. Perspective is everything." tabindex="0" role="button" aria-label="A little wonder">✦</span>
+        </p>
+
+        <!--
+          ✏️ PRESCA: these four projects are placeholders — swap in your real
+          case studies. Each card needs: a name, a constellation (auto-drawn),
+          tags, a short story, and a link.
+        -->
+        <div class="work__grid">
+          <article class="project" data-stars="7">
+            <div class="project__sky" aria-hidden="true"></div>
+            <div class="project__body">
+              <span class="project__index">01</span>
+              <h3 class="project__name">Lumen</h3>
+              <p class="project__desc">A gentle AI journaling companion that listens between the lines — turning scattered thoughts into quiet insight.</p>
+              <ul class="project__tags"><li>product design</li><li>AI</li><li>0→1</li></ul>
+              <a class="project__link" href="#" aria-label="View the Lumen case study">read the story <span aria-hidden="true">→</span></a>
+            </div>
+          </article>
+
+          <article class="project" data-stars="6">
+            <div class="project__sky" aria-hidden="true"></div>
+            <div class="project__body">
+              <span class="project__index">02</span>
+              <h3 class="project__name">Riverline</h3>
+              <p class="project__desc">A flow-mapping tool for product teams — user journeys that read like stories instead of spaghetti.</p>
+              <ul class="project__tags"><li>UX systems</li><li>SaaS</li><li>prototyping</li></ul>
+              <a class="project__link" href="#" aria-label="View the Riverline case study">read the story <span aria-hidden="true">→</span></a>
+            </div>
+          </article>
+
+          <article class="project" data-stars="8">
+            <div class="project__sky" aria-hidden="true"></div>
+            <div class="project__body">
+              <span class="project__index">03</span>
+              <h3 class="project__name">Petal</h3>
+              <p class="project__desc">A habit garden where routines bloom — built solo in six weeks with AI pair-programming, from sketch to App Store.</p>
+              <ul class="project__tags"><li>solo build</li><li>AI-assisted</li><li>mobile</li></ul>
+              <a class="project__link" href="#" aria-label="View the Petal case study">read the story <span aria-hidden="true">→</span></a>
+            </div>
+          </article>
+
+          <article class="project" data-stars="5">
+            <div class="project__sky" aria-hidden="true"></div>
+            <div class="project__body">
+              <span class="project__index">04</span>
+              <h3 class="project__name">Nightlight</h3>
+              <p class="project__desc">A UX case study on calm technology — redesigning notifications to respect attention instead of harvesting it.</p>
+              <ul class="project__tags"><li>case study</li><li>research</li><li>calm tech</li></ul>
+              <a class="project__link" href="#" aria-label="View the Nightlight case study">read the story <span aria-hidden="true">→</span></a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ Contact · make a wish ═══════════════ -->
+    <section class="contact section" id="contact" data-theme="dark">
+      <div class="contact__inner">
+        <p class="contact__eyebrow">the sky is clear tonight</p>
+        <h2 class="contact__title split-words">Make a wish.<br />I'll build it with you.</h2>
+        <p class="contact__lede">
+          Whether it's a product to design, a thing to build, or just a lovely idea
+          you can't stop thinking about — my inbox is a soft place to land.
+          <br /><span class="contact__hint">(click anywhere up here for a shooting star)</span>
+        </p>
+        <a class="contact__cta" href="mailto:prescreatives@gmail.com">
+          <span class="contact__cta-star" aria-hidden="true">✦</span>
+          prescreatives@gmail.com
+        </a>
+        <ul class="contact__socials">
+          <!-- ✏️ PRESCA: point these at your real profiles -->
+          <li><a href="#" aria-label="LinkedIn">LinkedIn</a></li>
+          <li><a href="#" aria-label="X (Twitter)">X</a></li>
+          <li><a href="#" aria-label="Instagram">Instagram</a></li>
+          <li><a href="#" aria-label="Read.cv">Read.cv</a></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer" data-theme="dark">
+    <p class="footer__wonders" id="wonderCounter" aria-live="polite">little wonders found: 0 / 4</p>
+    <p class="footer__line">designed &amp; built by Presca — with AI at my side, and wonder in the loop.</p>
+    <p class="footer__tiny">© <span id="year">2026</span> presca · be soft, stay sharp ✦</p>
+  </footer>
+
+  <!-- Toast for found wonders -->
+  <div class="wonder-toast" id="wonderToast" role="status" aria-live="polite"></div>
+
+  <script src="js/vendor/gsap.min.js"></script>
+  <script src="js/vendor/ScrollTrigger.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
