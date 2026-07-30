@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>学校拍摄时间表生成器</title>
+<style>
+:root{
+  --bg:#f4f6fa; --card:#ffffff; --ink:#1a2233; --muted:#7a8499;
+  --blue:#2563eb; --blue-soft:#e8efff; --line:#e6e9f0;
+  --green:#16a34a; --green-soft:#e9f9ef;
+  --red:#dc2626; --red-soft:#fdeaea;
+  --amber:#b45309; --amber-soft:#fdf3e0;
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);padding-bottom:60px}
+.wrap{max-width:680px;margin:0 auto;padding:14px}
+h1{font-size:1.25rem;display:flex;align-items:center;gap:8px;padding:6px 2px 14px}
+h1 .dot{color:var(--blue)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px}
+.card h2{font-size:1rem;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.card h2 small{font-weight:400;color:var(--muted);font-size:.75rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field label{font-size:.78rem;color:var(--muted)}
+.field input,.field select,.field textarea{
+  font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe;color:var(--ink);width:100%
+}
+.field input:focus,.field textarea:focus,.field select:focus{outline:2px solid var(--blue-soft);border-color:var(--blue)}
+textarea{resize:vertical;min-height:64px}
+button{font:inherit;border:none;border-radius:10px;padding:9px 14px;cursor:pointer;background:var(--blue-soft);color:var(--blue);font-weight:600}
+button.primary{background:var(--blue);color:#fff;width:100%;padding:13px;font-size:1.02rem;border-radius:12px}
+button.ghost{background:transparent;color:var(--muted);padding:6px 8px}
+button.small{padding:5px 9px;font-size:.8rem}
+button.danger{background:var(--red-soft);color:var(--red)}
+.row-list .item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.row-list .item:last-child{border-bottom:none}
+.row-list input{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:#fbfcfe;min-width:0}
+.row-list input.name{flex:1}
+.row-list input.num{width:64px;text-align:center}
+.drag-handle{cursor:grab;color:var(--muted);font-size:1.05rem;padding:2px 4px;touch-action:none;user-select:none}
+.item.dragging{opacity:.4}
+.item.locked{background:var(--blue-soft);border-radius:10px;padding:7px 8px}
+.lock-tag{font-size:.7rem;color:var(--blue);background:#fff;border-radius:6px;padding:2px 6px;white-space:nowrap}
+.mini-btns{display:flex;flex-direction:column;gap:2px}
+.mini-btns button{padding:1px 7px;font-size:.7rem;line-height:1.3;background:#f0f2f7;color:var(--muted)}
+.addbar{display:flex;gap:8px;margin-top:10px}
+.addbar input{flex:1;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fbfcfe;min-width:0}
+.addbar input.num{flex:0 0 70px;text-align:center}
+/* tabs */
+.tabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;background:var(--bg);padding:10px 0;margin-bottom:4px}
+.tabs button{flex:1;background:var(--card);color:var(--muted);border:1px solid var(--line);padding:10px 4px;border-radius:11px;font-size:.9rem}
+.tabs button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.panel{display:none}
+.panel.active{display:block}
+/* schedule cards */
+.sched-head{padding:4px 4px 10px}
+.sched-head .school{font-size:1.05rem;font-weight:700}
+.sched-head .date{color:var(--muted);font-size:.85rem;margin-top:2px}
+.slot{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:8px}
+.slot .time{font-weight:700;font-size:.94rem;min-width:112px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.slot .body{flex:1;min-width:0}
+.slot .title{font-weight:600;font-size:.95rem}
+.slot .sub{font-size:.76rem;color:var(--muted);margin-top:1px}
+.slot .dur{font-size:.8rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.slot.break{background:var(--amber-soft);border-color:#f3ddb5}
+.slot.break .time{color:var(--amber)}
+.slot.group{background:var(--blue-soft);border-color:#cfdcfa}
+.slot.moved{border-left:4px solid var(--amber)}
+.slot.skipped{background:var(--red-soft);border-color:#f5c9c9;opacity:.85}
+.slot.skipped .time{color:var(--red)}
+.team-tag{font-size:.68rem;font-weight:700;border-radius:6px;padding:2px 6px;margin-right:6px;vertical-align:1px}
+.tag-a{background:#e5f3ff;color:#0369a1}
+.tag-b{background:#efe9fd;color:#7c3aed}
+.tag-g{background:var(--blue-soft);color:var(--blue)}
+.tag-x{background:var(--amber-soft);color:var(--amber)}
+.alert{border-radius:12px;padding:11px 13px;margin-bottom:10px;font-size:.86rem;line-height:1.5}
+.alert.red{background:var(--red-soft);color:var(--red);border:1px solid #f5c9c9}
+.alert.amber{background:var(--amber-soft);color:var(--amber);border:1px solid #f3ddb5}
+.alert.green{background:var(--green-soft);color:var(--green);border:1px solid #c9ecd4}
+.finish{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0;text-align:center}
+.finish .big{font-size:1.05rem;font-weight:700}
+.finish .sub{color:var(--muted);font-size:.84rem;margin-top:4px}
+.section-label{font-size:.8rem;font-weight:700;color:var(--muted);letter-spacing:.05em;margin:16px 2px 8px}
+.tpl-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.tpl-row select{flex:1;min-width:120px}
+.hint{font-size:.74rem;color:var(--muted);margin-top:6px;line-height:1.5}
+.collapse-toggle{width:100%;text-align:left;background:transparent;color:var(--ink);font-weight:700;font-size:1rem;padding:0;display:flex;justify-content:space-between;align-items:center}
+.collapse-toggle .chev{color:var(--muted);font-size:.8rem;transition:transform .2s}
+.collapsed .chev{transform:rotate(-90deg)}
+.collapsed .card-body{display:none}
+.card-body{margin-top:10px}
+@media (max-width:400px){ .slot .time{min-width:98px;font-size:.88rem} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="dot">◆</span> 学校拍摄时间表生成器</h1>
+
+  <!-- ============ 基本设置 ============ -->
+  <div class="card" id="card-basic">
+    <button class="collapse-toggle" data-collapse="card-basic"><span>📋 基本资料</span><span class="chev">▼</span></button>
+    <div class="card-body">
+      <div class="field"><label>学校名称</label><input id="in-school" placeholder="SJKC ..."></div>
+      <div class="grid2">
+        <div class="field"><label>拍摄日期</label><input id="in-date" type="date"></div>
+        <div class="field"><label>到校 / 开拍时间</label><input id="in-arrival" type="time"></div>
+        <div class="field"><label>休息开始</label><input id="in-break-start" type="time"></div>
+        <div class="field"><label>休息结束</label><input id="in-break-end" type="time"></div>
+        <div class="field"><label>放学时间</label><input id="in-dismissal" type="time"></div>
+        <div class="field"><label>放学前停拍缓冲（分钟）</label><input id="in-stopbuf" type="number" min="0" step="5"></div>
+      </div>
+      <div class="hint" id="stop-hint"></div>
+    </div>
+  </div>
+
+  <!-- ============ A 队 ============ -->
+  <div class="card" id="card-a">
+    <button class="collapse-toggle" data-collapse="card-a"><span>🅰️ A队（个人照：证件照 → 毕业照）</span><span class="chev">▼</span></button>
+    <div class="card-body">
+      <div class="grid2">
+        <div class="field"><label>每人拍摄秒数</label><input id="in-sec-per" type="number" min="10" step="5"></div>
+        <div class="field"><label>A队硬停止时间（停拍去合照）</label><input id="in-hardstop" type="time"></div>
+      </div>
+      <div class="row-list" id="a-list"></div>
+      <div class="addbar">
+        <input id="a-new-name" placeholder="班级 (如 6M)">
+        <input id="a-new-count" class="num" type="number" min="1" placeholder="人数">
+        <button id="a-add">＋ 添加</button>
+      </div>
+      <div class="hint">每班时间 = 人数 × 每人秒数，精确到秒，无缓冲。超过硬停止时间的班级将被跳过并警告。</div>
+    </div>
+  </div>
+
+  <!-- ============ B 队 ============ -->
+  <div class="card" id="card-b">
+    <button class="collapse-toggle" data-collapse="card-b"><span>🅱️ B队（班级照）</span><span class="chev">▼</span></button>
+    <div class="card-body">
+      <div class="field"><label>每班分钟数（固定，无缓冲）</label><input id="in-min-per-class" type="number" min="1" step="1"></div>
+      <div class="field">
+        <label>全部班级（逗号 / 空格分隔，按拍摄顺序）</label>
+        <textarea id="in-b-classes" placeholder="1M, 1K, 2M, ..."></textarea>
+      </div>
+      <button class="small" id="b-preset">使用预设班级 1M–6H</button>
+      <div class="hint">与A队同级的年级（如6年级）会自动移到 A队该年级拍完之后，避免撞班。休息时间与A队同步。</div>
+    </div>
+  </div>
+
+  <!-- ============ 合照 ============ -->
+  <div class="card" id="card-g">
+    <button class="collapse-toggle" data-collapse="card-g"><span>👥 团体合照（两队拍完即开始）</span><span class="chev">▼</span></button>
+    <div class="card-body">
+      <div class="row-list" id="g-list"></div>
+      <div class="addbar">
+        <input id="g-new-name" placeholder="合照名称">
+        <input id="g-new-min" class="num" type="number" min="1" placeholder="分钟">
+        <button id="g-add">＋ 添加</button>
+      </div>
+      <div class="hint">按住 ⠿ 拖动或用 ▲▼ 调整顺序。「行政组」锁定在最后。开始时间 = max(A队结束, B队结束)，完全动态。</div>
+    </div>
+  </div>
+
+  <!-- ============ 模板 ============ -->
+  <div class="card" id="card-tpl">
+    <button class="collapse-toggle" data-collapse="card-tpl"><span>💾 模板（保存 / 复用）</span><span class="chev">▼</span></button>
+    <div class="card-body">
+      <div class="addbar">
+        <input id="tpl-name" placeholder="模板名称（如：培育华小 2026）">
+        <button id="tpl-save">保存</button>
+      </div>
+      <div class="tpl-row">
+        <select id="tpl-select"><option value="">— 选择已存模板 —</option></select>
+        <button class="small" id="tpl-load">载入</button>
+        <button class="small danger" id="tpl-del">删除</button>
+      </div>
+      <div class="tpl-row">
+        <button class="small" id="tpl-export">⬇ 导出 JSON</button>
+        <button class="small" id="tpl-import">⬆ 导入 JSON</button>
+        <button class="small" id="tpl-clone">🆕 克隆到新学校</button>
+        <input type="file" id="tpl-file" accept=".json,application/json" style="display:none">
+      </div>
+    </div>
+  </div>
+
+  <button class="primary" id="btn-generate">⚡ 生成时间表</button>
+
+  <!-- ============ 输出 ============ -->
+  <div id="output" style="display:none">
+    <div class="sched-head">
+      <div class="school" id="out-school"></div>
+      <div class="date" id="out-date"></div>
+    </div>
+    <div id="out-warnings"></div>
+    <div class="tabs">
+      <button data-tab="tab-a" class="active">A队</button>
+      <button data-tab="tab-b">B队</button>
+      <button data-tab="tab-sum">总表</button>
+    </div>
+    <div class="panel active" id="tab-a"></div>
+    <div class="panel" id="tab-b"></div>
+    <div class="panel" id="tab-sum"></div>
+    <div id="out-finish"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= state ================= */
+const DEFAULT_MODEL = {
+  school:"SJKC PEI YU 培育华小",
+  date:"2026-08-03",
+  arrival:"07:40",
+  breakStart:"09:40",
+  breakEnd:"10:00",
+  dismissal:"13:00",
+  stopBuf:10,
+  secPer:90,
+  hardStop:"10:40",
+  aClasses:[{name:"6M",count:25},{name:"6K",count:24},{name:"6H",count:25}],
+  bText:"1M, 1K, 2M, 2K, 3M, 3K, 3H, 4M, 4K, 5M, 5K, 5H, 6M, 6K, 6H",
+  minPerClass:8,
+  groups:[
+    {name:"董事部合照",min:10},
+    {name:"家協合照",min:10},
+    {name:"全体教师合照",min:20},
+    {name:"三机构大合照",min:30},
+    {name:"行政组合照",min:20}
+  ]
+};
+const LS_TPL="photoTT_templates_v1", LS_CUR="photoTT_current_v1";
+let model = loadCurrent() || deepCopy(DEFAULT_MODEL);
+
+function deepCopy(o){return JSON.parse(JSON.stringify(o))}
+function loadCurrent(){try{const s=localStorage.getItem(LS_CUR);return s?JSON.parse(s):null}catch(e){return null}}
+function saveCurrent(){try{localStorage.setItem(LS_CUR,JSON.stringify(model))}catch(e){}}
+
+/* ================= time helpers ================= */
+function tSec(hhmm){ if(!hhmm) return null; const [h,m]=hhmm.split(":").map(Number); return h*3600+m*60; }
+function pad(n){return String(n).padStart(2,"0")}
+function fmtT(sec){
+  sec=Math.round(sec);
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return s? `${h}:${pad(m)}:${pad(s)}` : `${h}:${pad(m)}`;
+}
+function fmtDur(sec){
+  const m=Math.floor(sec/60), s=Math.round(sec%60);
+  return s? `${m}′${s}″` : `${m}′`;
+}
+function fmtDate(iso){
+  if(!iso) return "";
+  const d=new Date(iso+"T00:00:00");
+  if(isNaN(d)) return iso;
+  const wd="日一二三四五六"[d.getDay()];
+  return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}（星期${wd}）`;
+}
+function gradeOf(name){ const m=String(name).trim().match(/^(\d+)/); return m?m[1]:null; }
+
+/* place a slot of `dur` seconds at cursor, pausing during break */
+function place(cursor,dur,brk){
+  if(cursor>=brk.start && cursor<brk.end) cursor=brk.end;
+  let end, crossesBreak=false;
+  if(cursor<brk.start && cursor+dur>brk.start){
+    end = brk.end + (dur-(brk.start-cursor));
+    crossesBreak=true;
+  } else end = cursor+dur;
+  return {start:cursor,end,crossesBreak};
+}
+
+/* ================= core computation ================= */
+function compute(m){
+  const arrival=tSec(m.arrival), brk={start:tSec(m.breakStart),end:tSec(m.breakEnd)};
+  const dismissal=tSec(m.dismissal), stopTime=dismissal-(Number(m.stopBuf)||0)*60;
+  const hardStop=tSec(m.hardStop);
+  const secPer=Number(m.secPer)||90, minPer=Number(m.minPerClass)||8;
+  const warnings=[];
+
+  /* --- Team A --- */
+  let cur=arrival; const aRows=[]; const aSkipped=[]; let stopped=false;
+  for(const c of m.aClasses){
+    if(!c.name) continue;
+    if(stopped){ aSkipped.push(c.name); continue; }
+    const dur=(Number(c.count)||0)*secPer;
+    const slot=place(cur,dur,brk);
+    if(slot.end>hardStop){ stopped=true; aSkipped.push(c.name); continue; }
+    aRows.push({...slot,name:c.name,dur,count:c.count});
+    cur=slot.end;
+  }
+  const aEnd=aRows.length?aRows[aRows.length-1].end:arrival;
+  if(aSkipped.length)
+    warnings.push({level:"red",text:`⚠️ A队硬停止 ${fmtT(hardStop)}：以下班级来不及拍完，已被跳过 → ${aSkipped.join("、")}（请延后补拍或放弃）`});
+
+  const aGrades=new Set(m.aClasses.map(c=>gradeOf(c.name)).filter(Boolean));
+  const lastAGradeEnd={};
+  aRows.forEach(r=>{const g=gradeOf(r.name); if(g) lastAGradeEnd[g]=r.end;});
+
+  /* --- Team B --- */
+  const bNames=m.bText.split(/[,，、\s]+/).map(s=>s.trim()).filter(Boolean);
+  const normal=[], deferred=[];
+  bNames.forEach(n=>{ (aGrades.has(gradeOf(n)) ? deferred : normal).push(n); });
+
+  cur=arrival; const bRows=[];
+  for(const n of normal){
+    const slot=place(cur,minPer*60,brk);
+    bRows.push({...slot,name:n,dur:minPer*60,moved:false});
+    cur=slot.end;
+  }
+  if(deferred.length){
+    let minStart=0;
+    deferred.forEach(n=>{const g=gradeOf(n); if(lastAGradeEnd[g]!=null) minStart=Math.max(minStart,lastAGradeEnd[g]);});
+    const grades=[...new Set(deferred.map(gradeOf))].map(g=>g+"年级").join("、");
+    if(minStart>cur){
+      warnings.push({level:"amber",text:`🔀 冲突自动避开：B队 ${grades} 班级照已移至 A队同年级拍摄结束（${fmtT(minStart)}）之后，避免与A队撞班。`});
+      cur=minStart;
+    } else if(minStart>0){
+      warnings.push({level:"amber",text:`🔀 B队 ${grades} 已自动排在 A队同年级结束（${fmtT(minStart)}）之后 —— 前面班级已排到 ${fmtT(cur)}，无需额外等待。`});
+    }
+    for(const n of deferred){
+      const slot=place(Math.max(cur,minStart),minPer*60,brk);
+      bRows.push({...slot,name:n,dur:minPer*60,moved:true});
+      cur=slot.end;
+    }
+  }
+  const bEnd=bRows.length?bRows[bRows.length-1].end:arrival;
+
+  /* --- Group photos: dynamic start --- */
+  let gcur=Math.max(aEnd,bEnd);
+  const gRows=[];
+  for(const g of m.groups){
+    if(!g.name) continue;
+    const slot=place(gcur,(Number(g.min)||0)*60,brk);
+    gRows.push({...slot,name:g.name,dur:(Number(g.min)||0)*60});
+    gcur=slot.end;
+  }
+  const finalEnd=gRows.length?gRows[gRows.length-1].end:Math.max(aEnd,bEnd);
+
+  if(!m.groups.some(g=>/行政/.test(g.name)))
+    warnings.push({level:"amber",text:"❓ 合照名单里没有「行政组」—— 如需要请在合照区添加。"});
+  if(finalEnd>stopTime)
+    warnings.push({level:"red",text:`🔴 超时警告：全部结束时间 ${fmtT(finalEnd)} 已超过停止拍摄时间 ${fmtT(stopTime)}（放学 ${fmtT(dismissal)} 前 ${m.stopBuf} 分钟）。请削减项目或提早开拍。`});
+
+  return {arrival,brk,stopTime,dismissal,hardStop,aRows,aSkipped,aEnd,bRows,bEnd,gRows,groupStart:Math.max(aEnd,bEnd),finalEnd,warnings};
+}
+
+/* ================= output rendering ================= */
+const $=id=>document.getElementById(id);
+
+function slotHTML(r,opts={}){
+  const cls=["slot",opts.cls||""].join(" ");
+  const sub=[];
+  if(opts.sub) sub.push(opts.sub);
+  if(r.crossesBreak) sub.push("跨休息时段，休息后继续");
+  if(r.moved) sub.push("已自动避开A队同年级时段");
+  return `<div class="${cls}">
+    <div class="time">${fmtT(r.start)} – ${fmtT(r.end)}</div>
+    <div class="body"><div class="title">${opts.tag||""}${r.name}${opts.suffix||""}</div>
+      ${sub.length?`<div class="sub">${sub.join(" · ")}</div>`:""}</div>
+    <div class="dur">${fmtDur(r.dur)}</div>
+  </div>`;
+}
+function breakHTML(brk){
+  return `<div class="slot break">
+    <div class="time">${fmtT(brk.start)} – ${fmtT(brk.end)}</div>
+    <div class="body"><div class="title">☕ 休息</div><div class="sub">两队同步休息</div></div>
+    <div class="dur">${fmtDur(brk.end-brk.start)}</div>
+  </div>`;
+}
+function render(){
+  saveCurrent();
+  const R=compute(model);
+  $("output").style.display="block";
+  $("out-school").textContent="◆ "+(model.school||"（未命名学校）");
+  $("out-date").textContent="拍摄日期："+fmtDate(model.date)+"　·　开拍 "+fmtT(R.arrival)+"　·　停拍 "+fmtT(R.stopTime);
+
+  $("out-warnings").innerHTML=R.warnings.map(w=>`<div class="alert ${w.level}">${w.text}</div>`).join("");
+
+  /* --- Tab A --- */
+  {
+    const parts=[];
+    let brkDone=false;
+    for(const r of R.aRows){
+      if(!brkDone && r.start>=R.brk.end){ parts.push(breakHTML(R.brk)); brkDone=true; }
+      parts.push(slotHTML(r,{sub:`证件照 → 毕业照 · ${r.count} 人 × ${model.secPer}秒`}));
+    }
+    for(const n of R.aSkipped){
+      parts.push(`<div class="slot skipped"><div class="time">已跳过</div>
+        <div class="body"><div class="title">${n}</div><div class="sub">超过A队硬停止 ${fmtT(R.hardStop)} —— 延后补拍或放弃</div></div><div class="dur">–</div></div>`);
+    }
+    parts.push(`<div class="finish"><div class="big">A队结束：${fmtT(R.aEnd)}</div>
+      <div class="sub">硬停止 ${fmtT(R.hardStop)} · 结束后前往支援合照</div></div>`);
+    $("tab-a").innerHTML=parts.join("");
+  }
+
+  /* --- Tab B (class photos + group photos) --- */
+  {
+    const parts=[];
+    let brkDone=false;
+    for(const r of R.bRows){
+      if(!brkDone && r.start>=R.brk.end){ parts.push(breakHTML(R.brk)); brkDone=true; }
+      parts.push(slotHTML(r,{sub:"班级照",cls:r.moved?"moved":""}));
+    }
+    parts.push(`<div class="section-label">👥 团体合照（${fmtT(R.groupStart)} 开始 · 两队拍完即开始）</div>`);
+    for(const r of R.gRows) parts.push(slotHTML(r,{cls:"group"}));
+    parts.push(finishHTML(R));
+    $("tab-b").innerHTML=parts.join("");
+  }
+
+  /* --- Master summary --- */
+  {
+    const items=[];
+    R.aRows.forEach(r=>items.push({start:r.start,html:slotHTML(r,{tag:`<span class="team-tag tag-a">A队</span>`,sub:`证件照 → 毕业照 · ${r.count} 人`})}));
+    R.bRows.forEach(r=>items.push({start:r.start,html:slotHTML(r,{tag:`<span class="team-tag tag-b">B队</span>`,sub:"班级照",cls:r.moved?"moved":""})}));
+    R.gRows.forEach(r=>items.push({start:r.start,html:slotHTML(r,{tag:`<span class="team-tag tag-g">合照</span>`,cls:"group"})}));
+    items.push({start:R.brk.start,html:breakHTML(R.brk)});
+    items.sort((x,y)=>x.start-y.start);
+    $("tab-sum").innerHTML=items.map(i=>i.html).join("")+finishHTML(R);
+  }
+  $("out-finish").innerHTML="";
+}
+function finishHTML(R){
+  const ok=R.finalEnd<=R.stopTime;
+  const diffMin=Math.abs(R.stopTime-R.finalEnd)/60;
+  const diffTxt=(Math.round(diffMin*10)/10).toLocaleString();
+  return `<div class="finish">
+    <div class="big">${fmtT(R.finalEnd)} 全部完成 ${ok?"✅":"🔴"}</div>
+    <div class="sub" style="${ok?"":"color:var(--red);font-weight:700"}">
+      ${ok?`距停止拍摄 ${fmtT(R.stopTime)} 还有 <b>${diffTxt} 分钟缓冲</b>`
+          :`超过停止拍摄 ${fmtT(R.stopTime)} 约 <b>${diffTxt} 分钟</b>！`}</div>
+  </div>`;
+}
+
+/* ================= input UI binding ================= */
+function bindBasic(){
+  const map=[["in-school","school"],["in-date","date"],["in-arrival","arrival"],
+    ["in-break-start","breakStart"],["in-break-end","breakEnd"],["in-dismissal","dismissal"],
+    ["in-stopbuf","stopBuf"],["in-sec-per","secPer"],["in-hardstop","hardStop"],
+    ["in-min-per-class","minPerClass"],["in-b-classes","bText"]];
+  map.forEach(([id,key])=>{
+    const el=$(id); el.value=model[key];
+    el.addEventListener("input",()=>{ model[key]=el.type==="number"?Number(el.value):el.value; updateStopHint(); saveCurrent(); });
+  });
+  updateStopHint();
+}
+function updateStopHint(){
+  const d=tSec(model.dismissal);
+  if(d==null) return;
+  $("stop-hint").textContent=`⏱ 停止拍摄时间 = 放学 ${fmtT(d)} − ${model.stopBuf||0} 分钟 = ${fmtT(d-(Number(model.stopBuf)||0)*60)}`;
+}
+
+/* --- Team A class list --- */
+function renderAList(){
+  const box=$("a-list"); box.innerHTML="";
+  model.aClasses.forEach((c,i)=>{
+    const div=document.createElement("div"); div.className="item";
+    div.innerHTML=`<input class="name" value="${c.name}" placeholder="班级">
+      <input class="num" type="number" min="1" value="${c.count}">
+      <span class="hint" style="margin:0;white-space:nowrap">${fmtDur((Number(c.count)||0)*(Number(model.secPer)||90))}</span>
+      <button class="ghost small">✕</button>`;
+    const [nameEl,numEl]=div.querySelectorAll("input");
+    nameEl.addEventListener("input",()=>{c.name=nameEl.value;saveCurrent()});
+    numEl.addEventListener("input",()=>{c.count=Number(numEl.value);div.querySelector(".hint").textContent=fmtDur((c.count||0)*(Number(model.secPer)||90));saveCurrent()});
+    div.querySelector("button").addEventListener("click",()=>{model.aClasses.splice(i,1);renderAList();saveCurrent()});
+    box.appendChild(div);
+  });
+}
+$("a-add").addEventListener("click",()=>{
+  const n=$("a-new-name").value.trim(), c=Number($("a-new-count").value);
+  if(!n||!c) return;
+  model.aClasses.push({name:n,count:c});
+  $("a-new-name").value="";$("a-new-count").value="";
+  renderAList(); saveCurrent();
+});
+$("b-preset").addEventListener("click",()=>{
+  model.bText="1M, 1K, 2M, 2K, 3M, 3K, 3H, 4M, 4K, 5M, 5K, 5H, 6M, 6K, 6H";
+  $("in-b-classes").value=model.bText; saveCurrent();
+});
+
+/* --- Group list (drag + arrows, 行政组 locked last) --- */
+function normalizeGroups(){
+  /* keep any 行政* group pinned to the end */
+  const admin=model.groups.filter(g=>/行政/.test(g.name));
+  const rest=model.groups.filter(g=>!/行政/.test(g.name));
+  model.groups=[...rest,...admin];
+}
+let dragIdx=null;
+function renderGList(){
+  normalizeGroups();
+  const box=$("g-list"); box.innerHTML="";
+  model.groups.forEach((g,i)=>{
+    const locked=/行政/.test(g.name);
+    const div=document.createElement("div");
+    div.className="item"+(locked?" locked":"");
+    div.dataset.idx=i;
+    div.innerHTML=`
+      ${locked?`<span class="lock-tag">🔒 最后</span>`:`<span class="drag-handle" draggable="true">⠿</span>`}
+      <input class="name" value="${g.name}">
+      <input class="num" type="number" min="1" value="${g.min}">
+      <span class="hint" style="margin:0">分钟</span>
+      ${locked?"":`<span class="mini-btns"><button data-mv="-1">▲</button><button data-mv="1">▼</button></span>`}
+      <button class="ghost small">✕</button>`;
+    const [nameEl,numEl]=div.querySelectorAll("input");
+    nameEl.addEventListener("change",()=>{g.name=nameEl.value;renderGList();saveCurrent()});
+    numEl.addEventListener("input",()=>{g.min=Number(numEl.value);saveCurrent()});
+    div.querySelectorAll("[data-mv]").forEach(b=>b.addEventListener("click",()=>{
+      const to=i+Number(b.dataset.mv);
+      const movableMax=model.groups.filter(x=>!/行政/.test(x.name)).length-1;
+      if(to<0||to>movableMax) return;
+      const [item]=model.groups.splice(i,1); model.groups.splice(to,0,item);
+      renderGList(); saveCurrent();
+    }));
+    div.querySelector("button.ghost").addEventListener("click",()=>{model.groups.splice(i,1);renderGList();saveCurrent()});
+    if(!locked){
+      const handle=div.querySelector(".drag-handle");
+      handle.addEventListener("dragstart",e=>{dragIdx=i;div.classList.add("dragging");e.dataTransfer.effectAllowed="move"});
+      handle.addEventListener("dragend",()=>{div.classList.remove("dragging")});
+      div.addEventListener("dragover",e=>{e.preventDefault()});
+      div.addEventListener("drop",e=>{
+        e.preventDefault();
+        if(dragIdx==null||dragIdx===i||locked) return;
+        const [item]=model.groups.splice(dragIdx,1);
+        model.groups.splice(i,0,item);
+        dragIdx=null; renderGList(); saveCurrent();
+      });
+    }
+    box.appendChild(div);
+  });
+}
+$("g-add").addEventListener("click",()=>{
+  const n=$("g-new-name").value.trim(), m=Number($("g-new-min").value);
+  if(!n||!m) return;
+  model.groups.push({name:n,min:m});
+  $("g-new-name").value="";$("g-new-min").value="";
+  renderGList(); saveCurrent();
+});
+
+/* ================= templates ================= */
+function getTemplates(){try{return JSON.parse(localStorage.getItem(LS_TPL)||"{}")}catch(e){return{}}}
+function setTemplates(t){localStorage.setItem(LS_TPL,JSON.stringify(t))}
+function refreshTplSelect(){
+  const sel=$("tpl-select"), t=getTemplates();
+  sel.innerHTML=`<option value="">— 选择已存模板 —</option>`+
+    Object.keys(t).map(k=>`<option value="${k.replace(/"/g,"&quot;")}">${k}</option>`).join("");
+}
+$("tpl-save").addEventListener("click",()=>{
+  const name=$("tpl-name").value.trim()||model.school||"未命名模板";
+  const t=getTemplates(); t[name]=deepCopy(model); setTemplates(t);
+  $("tpl-name").value=""; refreshTplSelect();
+  $("tpl-select").value=name;
+  alert(`已保存模板：「${name}」`);
+});
+$("tpl-load").addEventListener("click",()=>{
+  const k=$("tpl-select").value; if(!k) return;
+  const t=getTemplates(); if(!t[k]) return;
+  model={...deepCopy(DEFAULT_MODEL),...deepCopy(t[k])};
+  initInputs(); render();
+});
+$("tpl-del").addEventListener("click",()=>{
+  const k=$("tpl-select").value; if(!k) return;
+  if(!confirm(`删除模板「${k}」？`)) return;
+  const t=getTemplates(); delete t[k]; setTemplates(t); refreshTplSelect();
+});
+$("tpl-export").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(model,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=(model.school||"timetable")+".json";
+  a.click(); URL.revokeObjectURL(a.href);
+});
+$("tpl-import").addEventListener("click",()=>$("tpl-file").click());
+$("tpl-file").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{try{
+    model={...deepCopy(DEFAULT_MODEL),...JSON.parse(r.result)};
+    initInputs(); render();
+  }catch(err){alert("JSON 无法解析")}};
+  r.readAsText(f); e.target.value="";
+});
+$("tpl-clone").addEventListener("click",()=>{
+  model=deepCopy(model);
+  model.school=""; model.date="";
+  initInputs();
+  $("in-school").focus();
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+
+/* ================= tabs & collapse ================= */
+document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); $(b.dataset.tab).classList.add("active");
+}));
+document.querySelectorAll(".collapse-toggle").forEach(b=>b.addEventListener("click",()=>{
+  $(b.dataset.collapse).classList.toggle("collapsed");
+}));
+
+$("btn-generate").addEventListener("click",()=>{
+  render();
+  $("output").scrollIntoView({behavior:"smooth",block:"start"});
+});
+
+/* ================= init ================= */
+function initInputs(){ bindBasic(); renderAList(); renderGList(); }
+initInputs(); refreshTplSelect(); render();
+</script>
+</body>
+</html>
