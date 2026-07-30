@@ -221,6 +221,7 @@ button.danger{background:var(--red-soft);color:var(--red)}
       <button data-tab="tab-b">B队</button>
       <button data-tab="tab-sum">总表</button>
     </div>
+    <button class="small" id="btn-export" style="width:100%;margin:0 0 10px;background:var(--card);border:1px solid var(--line);color:var(--muted)">📷 将当前页导出为图片</button>
     <div class="panel active" id="tab-a"></div>
     <div class="panel" id="tab-b"></div>
     <div class="panel" id="tab-sum"></div>
@@ -254,6 +255,7 @@ const DEFAULT_MODEL = {
 };
 const LS_TPL="photoTT_templates_v1", LS_CUR="photoTT_current_v1";
 let model = loadCurrent() || deepCopy(DEFAULT_MODEL);
+let lastR = null;
 
 function deepCopy(o){return JSON.parse(JSON.stringify(o))}
 function loadCurrent(){try{const s=localStorage.getItem(LS_CUR);return s?JSON.parse(s):null}catch(e){return null}}
@@ -392,6 +394,7 @@ function breakHTML(brk){
 function render(){
   saveCurrent();
   const R=compute(model);
+  lastR=R;
   $("output").style.display="block";
   $("out-school").textContent="◆ "+(model.school||"（未命名学校）");
   $("out-date").textContent="拍摄日期："+fmtDate(model.date)+"　·　开拍 "+fmtT(R.arrival)+"　·　停拍 "+fmtT(R.stopTime);
@@ -607,6 +610,170 @@ $("tpl-clone").addEventListener("click",()=>{
   $("in-school").focus();
   window.scrollTo({top:0,behavior:"smooth"});
 });
+
+/* ================= image export ================= */
+const EXPORT_FONT='-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif';
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function timeRange(r){return `${fmtT(r.start)} – ${fmtT(r.end)}`}
+function wrapText(ctx,text,maxW){
+  const out=[]; let line="";
+  for(const ch of text){
+    if(ctx.measureText(line+ch).width>maxW){out.push(line);line=ch}
+    else line+=ch;
+  }
+  if(line)out.push(line);
+  return out;
+}
+function clipText(ctx,text,maxW){
+  if(ctx.measureText(text).width<=maxW) return text;
+  while(text.length&&ctx.measureText(text+"…").width>maxW) text=text.slice(0,-1);
+  return text+"…";
+}
+function cardShape(ctx,x,y,w,h,r,bg,bd){
+  ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(x,y,w,h,r);
+  else{
+    const rr=Math.min(r,w/2,h/2);
+    ctx.moveTo(x+rr,y);
+    ctx.arcTo(x+w,y,x+w,y+h,rr); ctx.arcTo(x+w,y+h,x,y+h,rr);
+    ctx.arcTo(x,y+h,x,y,rr); ctx.arcTo(x,y,x+w,y,rr);
+    ctx.closePath();
+  }
+  ctx.fillStyle=bg; ctx.fill();
+  ctx.strokeStyle=bd; ctx.lineWidth=1; ctx.stroke();
+}
+function textCenter(ctx,text,cx,y){ctx.fillText(text,cx-ctx.measureText(text).width/2,y)}
+
+function exportData(R,tab){
+  const rows=[];
+  const pushBreak=()=>rows.push({style:"break",time:timeRange(R.brk),title:"☕ 休息",sub:"两队同步休息",dur:fmtDur(R.brk.end-R.brk.start)});
+  const globalFinish={
+    ok:R.finalEnd<=R.stopTime,
+    big:`${fmtT(R.finalEnd)} 全部完成 ${R.finalEnd<=R.stopTime?"✅":"🔴"}`,
+    sub:R.finalEnd<=R.stopTime
+      ?`距停止拍摄 ${fmtT(R.stopTime)} 还有 ${Math.round((R.stopTime-R.finalEnd)/6)/10} 分钟缓冲`
+      :`超过停止拍摄 ${fmtT(R.stopTime)} 约 ${Math.round((R.finalEnd-R.stopTime)/6)/10} 分钟！`
+  };
+  if(tab==="tab-a"){
+    let bd=false;
+    for(const r of R.aRows){
+      if(!bd&&r.start>=R.brk.end){pushBreak();bd=true}
+      rows.push({style:"normal",time:timeRange(r),title:r.name,
+        sub:`证件照 → 毕业照 · ${r.count} 人`+(r.crossesBreak?" · 跨休息":""),dur:fmtDur(r.dur)});
+    }
+    for(const n of R.aSkipped)
+      rows.push({style:"skipped",time:"已跳过",title:n,sub:`超过A队硬停止 ${fmtT(R.hardStop)}`,dur:"–"});
+    return {label:"A队 · 个人照（证件照 → 毕业照）",rows,
+      finish:{ok:true,big:`A队结束：${fmtT(R.aEnd)}`,sub:`硬停止 ${fmtT(R.hardStop)} · 结束后前往支援合照`}};
+  }
+  if(tab==="tab-b"){
+    let bd=false;
+    for(const r of R.bRows){
+      if(!bd&&r.start>=R.brk.end){pushBreak();bd=true}
+      rows.push({style:r.moved?"moved":"normal",time:timeRange(r),title:r.name,
+        sub:"班级照"+(r.crossesBreak?" · 跨休息":"")+(r.moved?" · 已避开A队":""),dur:fmtDur(r.dur)});
+    }
+    rows.push({style:"label",title:`👥 团体合照（${fmtT(R.groupStart)} 开始）`});
+    for(const r of R.gRows)
+      rows.push({style:"group",time:timeRange(r),title:r.name,sub:"",dur:fmtDur(r.dur)});
+    return {label:"B队 · 班级照 + 团体合照",rows,finish:globalFinish};
+  }
+  const items=[];
+  R.aRows.forEach(r=>items.push({start:r.start,style:"normal",tag:"A队",tagStyle:"a",time:timeRange(r),title:r.name,sub:`证件照 → 毕业照 · ${r.count} 人`,dur:fmtDur(r.dur)}));
+  R.bRows.forEach(r=>items.push({start:r.start,style:r.moved?"moved":"normal",tag:"B队",tagStyle:"b",time:timeRange(r),title:r.name,sub:"班级照",dur:fmtDur(r.dur)}));
+  R.gRows.forEach(r=>items.push({start:r.start,style:"group",tag:"合照",tagStyle:"g",time:timeRange(r),title:r.name,sub:"",dur:fmtDur(r.dur)}));
+  items.push({start:R.brk.start,style:"break",time:timeRange(R.brk),title:"☕ 休息",sub:"两队同步休息",dur:fmtDur(R.brk.end-R.brk.start)});
+  items.sort((x,y)=>x.start-y.start);
+  return {label:"总表 · 全日流程",rows:items,finish:globalFinish};
+}
+
+function exportImage(){
+  render();
+  const R=lastR; if(!R) return;
+  const tabBtn=document.querySelector(".tabs button.active");
+  const tab=tabBtn?tabBtn.dataset.tab:"tab-sum";
+  const data=exportData(R,tab);
+  const W=560,PAD=18,GAP=8,dpr=2;
+  const mc=document.createElement("canvas").getContext("2d");
+  mc.font=`12.5px ${EXPORT_FONT}`;
+  const warnBlocks=R.warnings.map(w=>({level:w.level,lines:wrapText(mc,w.text,W-PAD*2-24)}));
+  let H=PAD+78;
+  warnBlocks.forEach(b=>{H+=b.lines.length*17+18+GAP});
+  data.rows.forEach(r=>{H+=r.style==="label"?30:(r.sub?58:48)+GAP});
+  H+=64+GAP+PAD;
+  const cv=document.createElement("canvas");
+  cv.width=W*dpr; cv.height=Math.ceil(H*dpr);
+  const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr);
+  const C={bg:cssVar("--bg"),card:cssVar("--card"),ink:cssVar("--ink"),muted:cssVar("--muted"),
+    blue:cssVar("--blue"),blueSoft:cssVar("--blue-soft"),blueLine:cssVar("--blue-line"),line:cssVar("--line"),
+    red:cssVar("--red"),redSoft:cssVar("--red-soft"),redLine:cssVar("--red-line"),
+    amber:cssVar("--amber"),amberSoft:cssVar("--amber-soft"),amberLine:cssVar("--amber-line")};
+  ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H);
+  let y=PAD;
+  ctx.fillStyle=C.ink; ctx.font=`800 19px ${EXPORT_FONT}`;
+  ctx.fillText(clipText(ctx,`◆ ${model.school||"（未命名学校）"}`,W-PAD*2),PAD,y+20);
+  ctx.font=`12.5px ${EXPORT_FONT}`; ctx.fillStyle=C.muted;
+  ctx.fillText(`拍摄日期：${fmtDate(model.date)} · 开拍 ${fmtT(R.arrival)} · 停拍 ${fmtT(R.stopTime)}`,PAD,y+42);
+  ctx.fillStyle=C.blue; ctx.font=`700 13px ${EXPORT_FONT}`;
+  ctx.fillText(data.label,PAD,y+64);
+  y+=78;
+  for(const b of warnBlocks){
+    const h=b.lines.length*17+18;
+    const [bg,bd,fg]=b.level==="red"?[C.redSoft,C.redLine,C.red]:[C.amberSoft,C.amberLine,C.amber];
+    cardShape(ctx,PAD,y,W-PAD*2,h,10,bg,bd);
+    ctx.fillStyle=fg; ctx.font=`12.5px ${EXPORT_FONT}`;
+    b.lines.forEach((ln,i)=>ctx.fillText(ln,PAD+12,y+22+i*17));
+    y+=h+GAP;
+  }
+  for(const r of data.rows){
+    if(r.style==="label"){
+      ctx.fillStyle=C.muted; ctx.font=`700 12.5px ${EXPORT_FONT}`;
+      ctx.fillText(r.title,PAD+2,y+20); y+=30; continue;
+    }
+    const h=r.sub?58:48, baseline=r.sub?24:29;
+    let bg=C.card,bd=C.line,tc=C.ink;
+    if(r.style==="break"){bg=C.amberSoft;bd=C.amberLine;tc=C.amber}
+    if(r.style==="group"){bg=C.blueSoft;bd=C.blueLine}
+    if(r.style==="skipped"){bg=C.redSoft;bd=C.redLine;tc=C.red}
+    cardShape(ctx,PAD,y,W-PAD*2,h,11,bg,bd);
+    if(r.style==="moved"){ctx.fillStyle=C.amber;ctx.fillRect(PAD+1,y+8,3,h-16)}
+    ctx.fillStyle=tc; ctx.font=`700 13.5px ${EXPORT_FONT}`;
+    ctx.fillText(r.time,PAD+12,y+baseline);
+    ctx.fillStyle=C.muted; ctx.font=`12px ${EXPORT_FONT}`;
+    ctx.fillText(r.dur,W-PAD-12-ctx.measureText(r.dur).width,y+baseline);
+    let tx=PAD+140;
+    if(r.tag){
+      ctx.font=`700 10px ${EXPORT_FONT}`;
+      const tw=ctx.measureText(r.tag).width+10;
+      const tagCol=r.tagStyle==="a"?["#e5f3ff","#0369a1"]:r.tagStyle==="b"?["#efe9fd","#7c3aed"]:[C.blueSoft,C.blue];
+      cardShape(ctx,tx,y+baseline-11,tw,15,5,tagCol[0],tagCol[0]);
+      ctx.fillStyle=tagCol[1];
+      ctx.fillText(r.tag,tx+5,y+baseline);
+      tx+=tw+6;
+    }
+    ctx.fillStyle=C.ink; ctx.font=`700 14px ${EXPORT_FONT}`;
+    ctx.fillText(clipText(ctx,r.title,W-PAD-70-tx),tx,y+baseline);
+    if(r.sub){
+      ctx.fillStyle=C.muted; ctx.font=`11.5px ${EXPORT_FONT}`;
+      ctx.fillText(clipText(ctx,r.sub,W-PAD*2-160),PAD+140,y+43);
+    }
+    y+=h+GAP;
+  }
+  cardShape(ctx,PAD,y,W-PAD*2,64,11,C.card,C.line);
+  ctx.fillStyle=C.ink; ctx.font=`800 15px ${EXPORT_FONT}`;
+  textCenter(ctx,data.finish.big,W/2,y+27);
+  ctx.fillStyle=data.finish.ok?C.muted:C.red; ctx.font=`12.5px ${EXPORT_FONT}`;
+  textCenter(ctx,data.finish.sub,W/2,y+48);
+  const tabName={"tab-a":"A队","tab-b":"B队","tab-sum":"总表"}[tab];
+  cv.toBlob(b=>{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(b);
+    a.download=`${(model.school||"timetable").replace(/[\\/:*?"<>|]/g,"_")}_${tabName}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+  },"image/png");
+}
+document.getElementById("btn-export").addEventListener("click",exportImage);
 
 /* ================= tabs & collapse ================= */
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{
