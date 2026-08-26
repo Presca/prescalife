@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#12100e" />
+  <meta name="description" content="A live tour guide in your pocket — witty fun facts about iconic places as you pass them." />
+  <title>Tour Guide Buddy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-emoji">🗺️</span>
+      <div>
+        <h1>Tour Guide Buddy</h1>
+        <p id="status-line" class="status">Off duty. Tap start and let's wander.</p>
+      </div>
+    </div>
+    <button id="voice-toggle" class="icon-btn" title="Read facts aloud" aria-pressed="false">🔇</button>
+  </header>
+
+  <main id="feed" class="feed" aria-live="polite">
+    <section class="hero" id="hero">
+      <p class="hero-emoji">🧭</p>
+      <h2>Your pocket tour guide,<br />minus the umbrella and the megaphone.</h2>
+      <p class="hero-sub">
+        Start a tour and I'll watch the map while you watch the world.
+        Pass something iconic and I'll hit you with one good fact — short,
+        true, and occasionally funny. No rambling. I promise.
+      </p>
+      <div class="hero-actions">
+        <button id="start-btn" class="btn primary">▶ Start live tour</button>
+        <button id="demo-btn" class="btn ghost">🛋️ Couch demo</button>
+      </div>
+      <p class="fineprint">
+        Live mode uses your location on-device and looks up nearby places on
+        Wikipedia. Nothing is stored or sent anywhere else.
+      </p>
+    </section>
+  </main>
+
+  <footer class="dock hidden" id="dock">
+    <div class="dock-info">
+      <span id="dock-icon" class="pulse">📡</span>
+      <span id="dock-text">Scanning for landmarks…</span>
+    </div>
+    <button id="stop-btn" class="btn small danger">■ End tour</button>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
