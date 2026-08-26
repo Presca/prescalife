@@ -59,6 +59,7 @@
   $("demo-btn").addEventListener("click", startDemoTour);
   $("stop-btn").addEventListener("click", () => endTour("Tour over. My imaginary umbrella is lowered. 🌂"));
   $("voice-toggle").addEventListener("click", toggleVoice);
+  $("refresh-btn").addEventListener("click", refreshLocation);
 
   // ---------- ui helpers ----------
   function setStatus(text) { statusLine.textContent = text; }
@@ -71,6 +72,32 @@
     hero.classList.add("hidden");
     dock.classList.remove("hidden");
     setStatus(label);
+  }
+
+  // Card with "start again" actions, shown when a tour ends.
+  function restartCard() {
+    const el = document.createElement("div");
+    el.className = "card system";
+    el.textContent = "Feet rested? The world still has facts in it.";
+
+    const actions = document.createElement("div");
+    actions.className = "card-actions";
+
+    const live = document.createElement("button");
+    live.className = "btn primary small";
+    live.textContent = "▶ Start a new tour";
+    live.addEventListener("click", startLiveTour);
+    actions.appendChild(live);
+
+    const demo = document.createElement("button");
+    demo.className = "btn ghost small";
+    demo.textContent = "🛋️ Replay demo";
+    demo.addEventListener("click", startDemoTour);
+    actions.appendChild(demo);
+
+    el.appendChild(actions);
+    feed.appendChild(el);
+    el.scrollIntoView({ behavior: "smooth", block: "end" });
   }
 
   function systemCard(text) {
@@ -156,6 +183,39 @@
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.02;
     speechSynthesis.speak(u);
+  }
+
+  // ---------- refresh location ----------
+  let lastRefresh = 0;
+
+  // Force a fresh GPS fix and immediate scan, skipping the movement gate.
+  function refreshLocation() {
+    if (state.mode !== "live") return;
+    const now = Date.now();
+    if (now - lastRefresh < 5000) {
+      setDock("Easy! Still refreshing…", "🔄");
+      return;
+    }
+    lastRefresh = now;
+
+    const btn = $("refresh-btn");
+    btn.classList.add("spinning");
+    setDock("Getting a fresh fix…", "📡");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lon } = pos.coords;
+        state.lastScan = { lat, lon, time: Date.now() };
+        scanNearby(lat, lon)
+          .catch(() => setDock("Network hiccup — try again in a sec.", "📡"))
+          .finally(() => btn.classList.remove("spinning"));
+      },
+      () => {
+        btn.classList.remove("spinning");
+        setDock("Couldn't refresh the fix. Sky helps.", "📡");
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
   }
 
   // ---------- live tour ----------
@@ -323,6 +383,8 @@
     state.mode = mode;
     state.seen.clear();
     state.lastScan = { lat: null, lon: null, time: 0 };
+    feed.querySelectorAll(".card").forEach((c) => c.remove());
+    $("refresh-btn").classList.toggle("hidden", mode !== "live");
   }
 
   function stopWatching() {
@@ -342,6 +404,7 @@
     state.mode = "idle";
     dock.classList.add("hidden");
     setStatus(statusText);
+    restartCard();
   }
 
   // ---------- geo math ----------
