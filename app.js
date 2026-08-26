@@ -1,9 +1,9 @@
-/* Tour Guide Buddy — a live, location-aware tour guide with jokes.
+/* Tour Guide Buddy — a cheerful, location-aware tour guide.
  *
  * Live mode: watches your position, asks Wikipedia's geosearch API for
  * notable places within earshot, and announces each one exactly once with
- * a short quip + one trimmed fact. Demo mode: a simulated stroll past
- * world icons, no GPS or network needed.
+ * a picture, a short quip, and one trimmed fact — read aloud by default.
+ * Demo mode: a simulated stroll past world icons, no GPS needed.
  */
 
 (() => {
@@ -41,7 +41,7 @@
     watchId: null,
     lastScan: { lat: null, lon: null, time: 0 },
     seen: new Set(),        // page titles already announced this tour
-    voiceOn: false,
+    voiceOn: true,          // facts are read aloud by default
     demoTimer: null,
     quipBag: [],
   };
@@ -57,7 +57,7 @@
 
   $("start-btn").addEventListener("click", startLiveTour);
   $("demo-btn").addEventListener("click", startDemoTour);
-  $("stop-btn").addEventListener("click", () => endTour("Tour over. My imaginary umbrella is lowered. 🌂"));
+  $("stop-btn").addEventListener("click", () => endTour("Tour over. Nice strolling with you! 🌤️"));
   $("voice-toggle").addEventListener("click", toggleVoice);
   $("refresh-btn").addEventListener("click", refreshLocation);
 
@@ -108,9 +108,29 @@
     el.scrollIntoView({ behavior: "smooth", block: "end" });
   }
 
-  function factCard({ title, quip, fact, distance, url }) {
+  // Travel-stamp fact card. Shows an emoji tile until a real photo arrives;
+  // returns a setImage(url) hook so images can load in after the card pops.
+  function factCard({ title, quip, fact, distance, url, image, emoji }) {
     const el = document.createElement("article");
     el.className = "card";
+    const inner = document.createElement("div");
+    inner.className = "stamp-inner";
+    el.appendChild(inner);
+
+    const media = document.createElement("div");
+    media.className = "card-media";
+    media.textContent = emoji || "📍";
+    inner.appendChild(media);
+
+    const setImage = (src) => {
+      if (!src) return;
+      const img = document.createElement("img");
+      img.alt = title;
+      img.loading = "lazy";
+      img.onload = () => { media.textContent = ""; media.appendChild(img); };
+      img.src = src;
+    };
+    setImage(image);
 
     const top = document.createElement("div");
     top.className = "card-top";
@@ -121,20 +141,20 @@
     if (distance != null) {
       const dist = document.createElement("span");
       dist.className = "card-dist";
-      dist.textContent = `~${Math.round(distance)} m away`;
+      dist.textContent = `~${Math.round(distance)} m`;
       top.appendChild(dist);
     }
-    el.appendChild(top);
+    inner.appendChild(top);
 
     const quipEl = document.createElement("p");
     quipEl.className = "card-quip";
     quipEl.textContent = quip;
-    el.appendChild(quipEl);
+    inner.appendChild(quipEl);
 
     const factEl = document.createElement("p");
     factEl.className = "card-fact";
     factEl.textContent = fact;
-    el.appendChild(factEl);
+    inner.appendChild(factEl);
 
     if (url) {
       const link = document.createElement("a");
@@ -143,12 +163,13 @@
       link.target = "_blank";
       link.rel = "noopener";
       link.textContent = "Rabbit hole →";
-      el.appendChild(link);
+      inner.appendChild(link);
     }
 
     feed.appendChild(el);
     el.scrollIntoView({ behavior: "smooth", block: "end" });
     speak(`${title}. ${fact}`);
+    return { setImage };
   }
 
   // ---------- personality helpers ----------
@@ -182,6 +203,15 @@
     if (!state.voiceOn || !("speechSynthesis" in window)) return;
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.02;
+    speechSynthesis.speak(u);
+  }
+
+  // Some browsers only allow speech after a user gesture; an empty
+  // utterance on the start tap unlocks it for the rest of the tour.
+  function unlockSpeech() {
+    if (!("speechSynthesis" in window)) return;
+    const u = new SpeechSynthesisUtterance("");
+    u.volume = 0;
     speechSynthesis.speak(u);
   }
 
@@ -225,7 +255,8 @@
       return;
     }
     resetTour("live");
-    showTouring("On duty. Wander freely.");
+    unlockSpeech();
+    showTouring("On tour! Wander freely.");
     setDock("Locking onto your position…", "📡");
     systemCard("Tour started! Walk around — I'll pipe up when we pass somewhere iconic. 🚶");
 
@@ -241,7 +272,7 @@
       ? "Location permission denied. A tour guide without a map is just a person shouting. Allow location, or try the couch demo."
       : "Couldn't get a GPS fix. Sky visibility helps — I'm a guide, not a mole.";
     systemCard(msg);
-    endTour("Off duty. Tap start and let's wander.");
+    endTour("Ready when you are!");
   }
 
   function onPosition(pos) {
@@ -295,6 +326,7 @@
         fact: summary.fact,
         distance: hit.dist,
         url: summary.url,
+        image: summary.image,
       });
     }
     setDock(`${state.seen.size} spot${state.seen.size === 1 ? "" : "s"} covered. Onward!`, "🧭");
@@ -311,6 +343,7 @@
         title: data.title || title,
         fact,
         url: data.content_urls?.desktop?.page,
+        image: data.thumbnail?.source,
       };
     } catch {
       return null;
@@ -321,31 +354,37 @@
   const DEMO_STOPS = [
     {
       title: "Eiffel Tower",
+      emoji: "🗼",
       fact: "Gustave Eiffel kept a secret apartment at the top for entertaining guests like Thomas Edison. Paris's most exclusive flat, and the landlord never rented it out.",
       url: "https://en.wikipedia.org/wiki/Eiffel_Tower",
     },
     {
       title: "Colosseum",
+      emoji: "🏟️",
       fact: "It could reportedly be flooded for mock naval battles. Romans invented the pool party, then made it a blood sport.",
       url: "https://en.wikipedia.org/wiki/Colosseum",
     },
     {
       title: "Big Ben",
+      emoji: "🕰️",
       fact: "Big Ben is technically just the bell — the tower is the Elizabeth Tower. Correcting people about this is a beloved British pastime.",
       url: "https://en.wikipedia.org/wiki/Big_Ben",
     },
     {
       title: "Statue of Liberty",
+      emoji: "🗽",
       fact: "She was delivered from France in 350 pieces packed in 214 crates — history's most stressful IKEA order.",
       url: "https://en.wikipedia.org/wiki/Statue_of_Liberty",
     },
     {
       title: "Great Pyramid of Giza",
+      emoji: "🐫",
       fact: "It was the tallest human-made structure for about 3,800 years. The record now changes hands every decade; the pyramid is unbothered.",
       url: "https://en.wikipedia.org/wiki/Great_Pyramid_of_Giza",
     },
     {
       title: "Sydney Opera House",
+      emoji: "🎭",
       fact: "Budgeted at 7 million dollars, it landed at 102 million and ten years late — proof that every great project estimate is a work of fiction.",
       url: "https://en.wikipedia.org/wiki/Sydney_Opera_House",
     },
@@ -353,6 +392,7 @@
 
   function startDemoTour() {
     resetTour("demo");
+    unlockSpeech();
     showTouring("Couch demo. Zero steps required.");
     setDock("Simulating a very glamorous stroll…", "🛋️");
     systemCard("Demo tour: pretend we're power-walking past the world's greatest hits. 🌍");
@@ -362,15 +402,17 @@
       if (state.mode !== "demo") return;
       if (i >= DEMO_STOPS.length) {
         systemCard("Demo complete. Now go outside and try it for real — I'll be here. 🌤️");
-        endTour("Off duty. Tap start and let's wander.");
+        endTour("Ready when you are!");
         return;
       }
       const stop = DEMO_STOPS[i++];
-      factCard({
+      const card = factCard({
         ...stop,
         quip: nextQuip(),
         distance: 40 + Math.floor(Math.random() * 160),
       });
+      // pull the real photo from Wikipedia; the emoji covers any failure
+      fetchSummary(stop.title).then((s) => card.setImage(s?.image));
       setDock(`${i}/${DEMO_STOPS.length} icons casually passed.`, "🧭");
       state.demoTimer = setTimeout(step, 3800);
     };
