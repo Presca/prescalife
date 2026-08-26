@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#12100e" />
-  <meta name="description" content="A live tour guide in your pocket — witty fun facts about iconic places as you pass them." />
+  <meta name="theme-color" content="#fdf9ee" />
+  <meta name="description" content="A cheerful pocket tour guide — fun facts with pictures and audio when you pass iconic places." />
   <title>Tour Guide Buddy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>" />
 </head>
@@ -18,31 +18,107 @@
       <span class="brand-emoji">🗺️</span>
       <div>
         <h1>Tour Guide Buddy</h1>
-        <p id="status-line" class="status">Off duty. Tap start and let's wander.</p>
+        <p id="status-line" class="status">Ready when you are!</p>
       </div>
     </div>
-    <button id="voice-toggle" class="icon-btn" title="Read facts aloud" aria-pressed="false">🔇</button>
+    <button id="voice-toggle" class="icon-btn" title="Read facts aloud" aria-pressed="true">🔊</button>
   </header>
 
   <main id="feed" class="feed" aria-live="polite">
     <section class="hero" id="hero">
-      <p class="hero-emoji">🧭</p>
-      <h2>Your pocket tour guide,<br />minus the umbrella and the megaphone.</h2>
+      <p class="hero-emoji">🚶🌍</p>
+      <h2>Walk. I talk.</h2>
       <p class="hero-sub">
-        Start a tour and I'll watch the map while you watch the world.
-        Pass something iconic and I'll hit you with one good fact — short,
-        true, and occasionally funny. No rambling. I promise.
+        Tap the button, go wander. When you pass somewhere iconic,
+        I'll show you a picture and tell you one fun fact out loud.
+        That's it. That's the app.
       </p>
       <div class="hero-actions">
-        <button id="start-btn" class="btn primary">▶ Start live tour</button>
-        <button id="demo-btn" class="btn ghost">🛋️ Couch demo</button>
+        <button id="start-btn" class="btn primary big">▶ Start tour</button>
       </div>
+      <button id="demo-btn" class="btn link">or try the couch demo 🛋️</button>
       <p class="fineprint">
-        Live mode uses your location on-device and looks up nearby places on
-        Wikipedia. Nothing is stored or sent anywhere else.
+        Your location stays on your phone — I only ask Wikipedia what's nearby.
       </p>
     </section>
   </main>
+
+  <div class="scenery" aria-hidden="true">
+    <svg viewBox="0 0 1440 340" preserveAspectRatio="xMidYMax slice">
+      <!-- far mountains -->
+      <path d="M0 210 L180 90 L340 200 L520 70 L720 210 Z" fill="#dcead0" />
+      <path d="M600 215 L820 80 L1020 210 L1200 100 L1440 220 Z" fill="#dcead0" />
+      <path d="M260 220 L440 120 L640 220 Z" fill="#cadfb6" />
+      <path d="M900 225 L1120 120 L1340 225 Z" fill="#cadfb6" />
+      <!-- hills -->
+      <path d="M0 250 Q 360 180 720 240 T 1440 235 L1440 340 L0 340 Z" fill="#a2cc7c" />
+      <!-- windmill -->
+      <g transform="translate(700 105)">
+        <polygon points="-14,140 14,140 8,30 -8,30" fill="#bcc6cc" />
+        <g stroke="#a9b3ba" stroke-width="9" stroke-linecap="round">
+          <line x1="0" y1="30" x2="-42" y2="-12" />
+          <line x1="0" y1="30" x2="42" y2="-12" />
+          <line x1="0" y1="30" x2="-42" y2="72" transform="rotate(90 0 30)" />
+          <line x1="0" y1="30" x2="42" y2="72" transform="rotate(90 0 30)" />
+        </g>
+        <circle cx="0" cy="30" r="8" fill="#98a3aa" />
+      </g>
+      <!-- barn, right -->
+      <g transform="translate(800 170) scale(0.85)">
+        <rect x="0" y="30" width="150" height="110" rx="6" fill="#c94f4f" />
+        <polygon points="-10,34 75,-18 160,34" fill="#eddaa9" />
+        <rect x="55" y="70" width="40" height="70" rx="4" fill="#a83e3e" />
+        <rect x="14" y="52" width="30" height="30" rx="3" fill="#eddaa9" />
+        <path d="M14 52 l30 30 M44 52 l-30 30" stroke="#c94f4f" stroke-width="4" />
+        <rect x="106" y="52" width="30" height="30" rx="3" fill="#eddaa9" />
+        <path d="M106 52 l30 30 M136 52 l-30 30" stroke="#c94f4f" stroke-width="4" />
+      </g>
+      <!-- farmhouse, left -->
+      <g transform="translate(455 175) scale(0.75)">
+        <rect x="0" y="40" width="230" height="100" rx="8" fill="#c94f4f" />
+        <polygon points="-16,46 115,-30 246,46" fill="#eddaa9" />
+        <g fill="#5b5148">
+          <path d="M40 140 v-48 a22 22 0 0 1 44 0 v48 Z" />
+          <path d="M140 140 v-48 a22 22 0 0 1 44 0 v48 Z" />
+          <circle cx="115" cy="20" r="14" />
+        </g>
+        <g>
+          <rect x="34" y="-26" width="34" height="34" rx="4" fill="#c94f4f" />
+          <polygon points="28,-22 51,-44 74,-22" fill="#eddaa9" />
+          <circle cx="51" cy="-12" r="7" fill="#5b5148" />
+          <rect x="152" y="-26" width="34" height="34" rx="4" fill="#c94f4f" />
+          <polygon points="146,-22 169,-44 192,-22" fill="#eddaa9" />
+          <circle cx="169" cy="-12" r="7" fill="#5b5148" />
+        </g>
+      </g>
+      <!-- silo -->
+      <rect x="398" y="140" width="46" height="160" rx="18" fill="#cfd6da" />
+      <rect x="407" y="128" width="28" height="20" rx="10" fill="#bcc6cc" />
+      <!-- fences -->
+      <g stroke="#e9d6a4" stroke-width="10" stroke-linecap="round">
+        <line x1="1030" y1="240" x2="1030" y2="285" />
+        <line x1="1100" y1="240" x2="1100" y2="285" />
+        <line x1="1170" y1="240" x2="1170" y2="285" />
+        <line x1="1005" y1="252" x2="1195" y2="252" />
+        <line x1="1005" y1="274" x2="1195" y2="274" />
+        <line x1="150" y1="240" x2="150" y2="285" />
+        <line x1="220" y1="240" x2="220" y2="285" />
+        <line x1="290" y1="240" x2="290" y2="285" />
+        <line x1="125" y1="252" x2="315" y2="252" />
+        <line x1="125" y1="274" x2="315" y2="274" />
+      </g>
+      <!-- foreground grass + path -->
+      <path d="M0 285 Q 720 255 1440 285 L1440 340 L0 340 Z" fill="#8fbf67" />
+      <path d="M0 316 Q 720 296 1440 316 L1440 340 L0 340 Z" fill="#f0e2b6" />
+      <!-- bushes -->
+      <g fill="#79b258">
+        <ellipse cx="420" cy="292" rx="46" ry="20" />
+        <ellipse cx="470" cy="296" rx="30" ry="15" />
+        <ellipse cx="1330" cy="296" rx="42" ry="18" />
+        <ellipse cx="660" cy="298" rx="26" ry="13" />
+      </g>
+    </svg>
+  </div>
 
   <footer class="dock hidden" id="dock">
     <div class="dock-info">
@@ -51,7 +127,7 @@
     </div>
     <div class="dock-actions">
       <button id="refresh-btn" class="icon-btn small" title="Refresh location now">🔄</button>
-      <button id="stop-btn" class="btn small danger">■ End tour</button>
+      <button id="stop-btn" class="btn small danger">■ End</button>
     </div>
   </footer>
 
