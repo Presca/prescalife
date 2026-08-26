@@ -40,8 +40,11 @@
     mode: "idle",           // idle | live | demo
     watchId: null,
     lastScan: { lat: null, lon: null, time: 0 },
+    prevFix: null,          // previous GPS fix, for deriving heading
+    heading: null,          // degrees clockwise from north, null = unknown
     seen: new Set(),        // page titles already announced this tour
     voiceOn: true,          // facts are read aloud by default
+    speechPaused: false,
     demoTimer: null,
     quipBag: [],
   };
@@ -60,6 +63,7 @@
   $("stop-btn").addEventListener("click", () => endTour("Tour over. Nice strolling with you! 🌤️"));
   $("voice-toggle").addEventListener("click", toggleVoice);
   $("refresh-btn").addEventListener("click", refreshLocation);
+  $("pause-btn").addEventListener("click", togglePause);
 
   // ---------- ui helpers ----------
   function setStatus(text) { statusLine.textContent = text; }
@@ -110,7 +114,7 @@
 
   // Travel-stamp fact card. Shows an emoji tile until a real photo arrives;
   // returns a setImage(url) hook so images can load in after the card pops.
-  function factCard({ title, quip, fact, distance, url, image, emoji }) {
+  function factCard({ title, quip, fact, distance, url, image, emoji, direction }) {
     const el = document.createElement("article");
     el.className = "card";
     const inner = document.createElement("div");
@@ -141,7 +145,8 @@
     if (distance != null) {
       const dist = document.createElement("span");
       dist.className = "card-dist";
-      dist.textContent = `~${Math.round(distance)} m`;
+      dist.textContent = `${direction ? direction.arrow + " " : ""}~${Math.round(distance)} m`;
+      if (direction) dist.title = direction.say;
       top.appendChild(dist);
     }
     inner.appendChild(top);
@@ -168,7 +173,7 @@
 
     feed.appendChild(el);
     el.scrollIntoView({ behavior: "smooth", block: "end" });
-    speak(`${title}. ${fact}`);
+    speak(`${spokenIntro(direction, distance)} ${title}. ${fact}`.trim());
     return { setImage };
   }
 
@@ -191,28 +196,88 @@
   }
 
   // ---------- voice ----------
+  const speechOK = "speechSynthesis" in window;
+  let chosenVoice = null;
+
+  // Devices ship far nicer voices than the API default; prefer the ones
+  // marketed as natural/neural/enhanced, then well-known pleasant names.
+  function pickVoice() {
+    if (chosenVoice) return chosenVoice;
+    const en = speechSynthesis.getVoices().filter((v) => /^en([-_]|$)/i.test(v.lang));
+    if (en.length === 0) return null;
+    const score = (v) => {
+      const n = v.name.toLowerCase();
+      let s = 0;
+      if (/natural|neural/.test(n)) s += 6;
+      if (/premium|enhanced/.test(n)) s += 5;
+      if (/siri/.test(n)) s += 4;
+      if (/google/.test(n)) s += 3;
+      if (/samantha|karen|daniel|moira|tessa|serena|ava|allison|zoe/.test(n)) s += 2;
+      if (/^en[-_]?(us|gb|au|ie)/i.test(v.lang)) s += 1;
+      return s;
+    };
+    chosenVoice = en.sort((a, b) => score(b) - score(a))[0];
+    return chosenVoice;
+  }
+  if (speechOK) {
+    speechSynthesis.onvoiceschanged = () => { chosenVoice = null; pickVoice(); };
+  }
+
   function toggleVoice() {
     state.voiceOn = !state.voiceOn;
     const btn = $("voice-toggle");
     btn.setAttribute("aria-pressed", String(state.voiceOn));
     btn.textContent = state.voiceOn ? "🔊" : "🔇";
-    if (!state.voiceOn && "speechSynthesis" in window) speechSynthesis.cancel();
+    if (!state.voiceOn && speechOK) {
+      speechSynthesis.resume();
+      speechSynthesis.cancel();
+    }
+    setPaused(false);
   }
 
   function speak(text) {
-    if (!state.voiceOn || !("speechSynthesis" in window)) return;
+    if (!state.voiceOn || !speechOK) return;
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.02;
+    const voice = pickVoice();
+    if (voice) u.voice = voice;
+    u.rate = 1.0;
+    u.pitch = 1.03;
+    u.onend = () => { if (!speechSynthesis.speaking) setPaused(false); };
+    // while paused, new facts queue up and play on resume
     speechSynthesis.speak(u);
   }
 
   // Some browsers only allow speech after a user gesture; an empty
   // utterance on the start tap unlocks it for the rest of the tour.
   function unlockSpeech() {
-    if (!("speechSynthesis" in window)) return;
+    if (!speechOK) return;
+    pickVoice();
     const u = new SpeechSynthesisUtterance("");
     u.volume = 0;
     speechSynthesis.speak(u);
+  }
+
+  function setPaused(v) {
+    state.speechPaused = v;
+    updatePauseBtn();
+  }
+
+  function updatePauseBtn() {
+    const btn = $("pause-btn");
+    btn.textContent = state.speechPaused ? "▶️" : "⏸️";
+    btn.title = state.speechPaused ? "Resume narration" : "Pause narration";
+    btn.classList.toggle("hidden", !state.voiceOn);
+  }
+
+  function togglePause() {
+    if (!speechOK || !state.voiceOn) return;
+    if (state.speechPaused) {
+      speechSynthesis.resume();
+      setPaused(false);
+    } else if (speechSynthesis.speaking) {
+      speechSynthesis.pause();
+      setPaused(true);
+    }
   }
 
   // ---------- refresh location ----------
@@ -280,6 +345,15 @@
     const now = Date.now();
     const { lastScan } = state;
 
+    // Which way are we facing? Trust the GPS heading while moving;
+    // otherwise derive it from the last two fixes.
+    if (Number.isFinite(pos.coords.heading) && (pos.coords.speed ?? 0) > 0.4) {
+      state.heading = pos.coords.heading;
+    } else if (state.prevFix && distanceMeters(state.prevFix.lat, state.prevFix.lon, lat, lon) > 10) {
+      state.heading = bearingDeg(state.prevFix.lat, state.prevFix.lon, lat, lon);
+    }
+    state.prevFix = { lat, lon };
+
     const moved = lastScan.lat == null
       ? Infinity
       : distanceMeters(lat, lon, lastScan.lat, lastScan.lon);
@@ -327,6 +401,7 @@
         distance: hit.dist,
         url: summary.url,
         image: summary.image,
+        direction: relativeDirection(lat, lon, hit.lat, hit.lon),
       });
     }
     setDock(`${state.seen.size} spot${state.seen.size === 1 ? "" : "s"} covered. Onward!`, "🧭");
@@ -406,10 +481,16 @@
         return;
       }
       const stop = DEMO_STOPS[i++];
+      const demoDirs = [
+        { say: "Straight ahead", arrow: "⬆️" },
+        { say: "On your right", arrow: "➡️" },
+        { say: "On your left", arrow: "⬅️" },
+      ];
       const card = factCard({
         ...stop,
         quip: nextQuip(),
         distance: 40 + Math.floor(Math.random() * 160),
+        direction: demoDirs[Math.floor(Math.random() * demoDirs.length)],
       });
       // pull the real photo from Wikipedia; the emoji covers any failure
       fetchSummary(stop.title).then((s) => card.setImage(s?.image));
@@ -425,8 +506,11 @@
     state.mode = mode;
     state.seen.clear();
     state.lastScan = { lat: null, lon: null, time: 0 };
+    state.prevFix = null;
+    state.heading = null;
     feed.querySelectorAll(".card").forEach((c) => c.remove());
     $("refresh-btn").classList.toggle("hidden", mode !== "live");
+    setPaused(false);
   }
 
   function stopWatching() {
@@ -438,7 +522,11 @@
       clearTimeout(state.demoTimer);
       state.demoTimer = null;
     }
-    if ("speechSynthesis" in window) speechSynthesis.cancel();
+    if (speechOK) {
+      speechSynthesis.resume(); // cancel() can wedge a paused engine
+      speechSynthesis.cancel();
+    }
+    state.speechPaused = false;
   }
 
   function endTour(statusText) {
@@ -449,7 +537,36 @@
     restartCard();
   }
 
+  // ---------- directions ----------
+  // Where is the landmark relative to the way we're walking?
+  function relativeDirection(fromLat, fromLon, toLat, toLon) {
+    if (state.heading == null || toLat == null) return null;
+    const bearing = bearingDeg(fromLat, fromLon, toLat, toLon);
+    const rel = ((bearing - state.heading + 540) % 360) - 180; // -180..180
+    if (Math.abs(rel) <= 45) return { say: "Straight ahead", arrow: "⬆️" };
+    if (rel > 45 && rel < 135) return { say: "On your right", arrow: "➡️" };
+    if (rel < -45 && rel > -135) return { say: "On your left", arrow: "⬅️" };
+    return { say: "Behind you", arrow: "↩️" };
+  }
+
+  function spokenIntro(direction, distance) {
+    const dist = distance != null ? `about ${Math.round(distance / 10) * 10 || 10} meters away` : null;
+    if (direction && dist) return `${direction.say}, ${dist}:`;
+    if (dist) return `Just ${dist}:`;
+    return "";
+  }
+
   // ---------- geo math ----------
+  function bearingDeg(lat1, lon1, lat2, lon2) {
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dLon = toRad(lon2 - lon1);
+    const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+    const x =
+      Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+      Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+    return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  }
+
   function distanceMeters(lat1, lon1, lat2, lon2) {
     const R = 6371000;
     const toRad = (d) => (d * Math.PI) / 180;
