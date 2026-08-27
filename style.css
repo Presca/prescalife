@@ -105,6 +105,23 @@ body {
   gap: 18px;
 }
 
+/* ---------- tour map ---------- */
+.map-card {
+  position: sticky;
+  top: 84px;
+  z-index: 5;
+  height: 240px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(90, 70, 40, 0.18);
+  border: 3px solid var(--card);
+  background: var(--card);
+}
+#map { width: 100%; height: 100%; }
+
+.map-pin { font-size: 26px; line-height: 1; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.25)); }
+.map-pin.you { font-size: 24px; }
+
 /* ---------- hero ---------- */
 .hero { text-align: center; padding: 7vh 8px 0; }
 .hero-emoji { font-size: 2.6rem; margin-bottom: 10px; }

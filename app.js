@@ -65,6 +65,67 @@
   $("refresh-btn").addEventListener("click", refreshLocation);
   $("pause-btn").addEventListener("click", togglePause);
 
+  // ---------- map ----------
+  let map = null, userMarker = null, spotLine = null, spotLayer = null;
+
+  function ensureMap() {
+    if (!window.L) return null; // map library unavailable → facts still flow
+    if (map) return map;
+    map = L.map("map", { zoomControl: false });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+    spotLayer = L.layerGroup().addTo(map);
+    return map;
+  }
+
+  function pin(emoji, cls) {
+    return L.divIcon({
+      className: "",
+      html: `<div class="map-pin ${cls || ""}">${emoji}</div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 24],
+    });
+  }
+
+  function showMap() {
+    $("map-panel").classList.remove("hidden");
+    if (map) setTimeout(() => map.invalidateSize(), 60);
+  }
+
+  function mapUser(lat, lon) {
+    if (!ensureMap()) return;
+    showMap();
+    if (!userMarker) {
+      userMarker = L.marker([lat, lon], { icon: pin("🚶", "you"), zIndexOffset: 1000 }).addTo(map);
+      map.setView([lat, lon], 16);
+    } else {
+      userMarker.setLatLng([lat, lon]);
+    }
+  }
+
+  function mapSpot(uLat, uLon, lat, lon, title) {
+    if (lat == null || !ensureMap()) return;
+    showMap();
+    L.marker([lat, lon], { icon: pin("📍") }).addTo(spotLayer).bindTooltip(title);
+    if (spotLine) spotLine.remove();
+    spotLine = L.polyline([[uLat, uLon], [lat, lon]], {
+      color: "#e8763c",
+      weight: 3,
+      dashArray: "6 8",
+    }).addTo(map);
+    map.fitBounds(L.latLngBounds([uLat, uLon], [lat, lon]), { padding: [40, 40], maxZoom: 17 });
+  }
+
+  function resetMap() {
+    $("map-panel").classList.add("hidden");
+    if (!map) return;
+    spotLayer.clearLayers();
+    if (spotLine) { spotLine.remove(); spotLine = null; }
+    if (userMarker) { userMarker.remove(); userMarker = null; }
+  }
+
   // ---------- ui helpers ----------
   function setStatus(text) { statusLine.textContent = text; }
   function setDock(text, icon) {
@@ -353,6 +414,7 @@
       state.heading = bearingDeg(state.prevFix.lat, state.prevFix.lon, lat, lon);
     }
     state.prevFix = { lat, lon };
+    mapUser(lat, lon);
 
     const moved = lastScan.lat == null
       ? Infinity
@@ -403,6 +465,7 @@
         image: summary.image,
         direction: relativeDirection(lat, lon, hit.lat, hit.lon),
       });
+      mapSpot(lat, lon, hit.lat, hit.lon, summary.title);
     }
     setDock(`${state.seen.size} spot${state.seen.size === 1 ? "" : "s"} covered. Onward!`, "🧭");
   }
@@ -429,36 +492,42 @@
   const DEMO_STOPS = [
     {
       title: "Eiffel Tower",
+      lat: 48.8584, lon: 2.2945,
       emoji: "🗼",
       fact: "Gustave Eiffel kept a secret apartment at the top for entertaining guests like Thomas Edison. Paris's most exclusive flat, and the landlord never rented it out.",
       url: "https://en.wikipedia.org/wiki/Eiffel_Tower",
     },
     {
       title: "Colosseum",
+      lat: 41.8902, lon: 12.4922,
       emoji: "🏟️",
       fact: "It could reportedly be flooded for mock naval battles. Romans invented the pool party, then made it a blood sport.",
       url: "https://en.wikipedia.org/wiki/Colosseum",
     },
     {
       title: "Big Ben",
+      lat: 51.5007, lon: -0.1246,
       emoji: "🕰️",
       fact: "Big Ben is technically just the bell — the tower is the Elizabeth Tower. Correcting people about this is a beloved British pastime.",
       url: "https://en.wikipedia.org/wiki/Big_Ben",
     },
     {
       title: "Statue of Liberty",
+      lat: 40.6892, lon: -74.0445,
       emoji: "🗽",
       fact: "She was delivered from France in 350 pieces packed in 214 crates — history's most stressful IKEA order.",
       url: "https://en.wikipedia.org/wiki/Statue_of_Liberty",
     },
     {
       title: "Great Pyramid of Giza",
+      lat: 29.9792, lon: 31.1342,
       emoji: "🐫",
       fact: "It was the tallest human-made structure for about 3,800 years. The record now changes hands every decade; the pyramid is unbothered.",
       url: "https://en.wikipedia.org/wiki/Great_Pyramid_of_Giza",
     },
     {
       title: "Sydney Opera House",
+      lat: -33.8568, lon: 151.2153,
       emoji: "🎭",
       fact: "Budgeted at 7 million dollars, it landed at 102 million and ten years late — proof that every great project estimate is a work of fiction.",
       url: "https://en.wikipedia.org/wiki/Sydney_Opera_House",
@@ -492,6 +561,11 @@
         distance: 40 + Math.floor(Math.random() * 160),
         direction: demoDirs[Math.floor(Math.random() * demoDirs.length)],
       });
+      // teleport our imaginary self ~150 m from the stop and frame both
+      const youLat = stop.lat + 0.0012, youLon = stop.lon + 0.0009;
+      mapUser(youLat, youLon);
+      if (userMarker) userMarker.setLatLng([youLat, youLon]);
+      mapSpot(youLat, youLon, stop.lat, stop.lon, stop.title);
       // pull the real photo from Wikipedia; the emoji covers any failure
       fetchSummary(stop.title).then((s) => card.setImage(s?.image));
       setDock(`${i}/${DEMO_STOPS.length} icons casually passed.`, "🧭");
@@ -511,6 +585,7 @@
     feed.querySelectorAll(".card").forEach((c) => c.remove());
     $("refresh-btn").classList.toggle("hidden", mode !== "live");
     setPaused(false);
+    resetMap();
   }
 
   function stopWatching() {
