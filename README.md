@@ -14,8 +14,12 @@ up until the next landmark. No blabbing, no umbrella, no tip jar.
   coordinates — which is basically everywhere.
 - **Couch demo** — a simulated stroll past six world icons, so you can try the
   experience without leaving the sofa (or granting location access).
-- **Read aloud** — tap 🔇/🔊 to have facts spoken via the browser's built-in
-  speech synthesis. Ideal for actual walking.
+- **Live map** — a sticky map (Leaflet + OpenStreetMap, vendored, no keys)
+  shows where you are 🚶 and where each announced place is 📍, with a dashed
+  line to the newest one so "200 m on your left" means something.
+- **Read aloud** — facts are spoken by default via the browser's speech
+  synthesis (best natural voice auto-picked); pause/resume from the dock,
+  mute with 🔇/🔊.
 - Each place is announced **once per tour**, at most two per scan.
 
 ## Privacy
