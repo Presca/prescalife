@@ -13,7 +13,7 @@
   const SEARCH_RADIUS_M = 250;      // "we're passing it" distance
   const MIN_MOVE_M = 25;            // re-scan only after moving this far
   const MIN_SCAN_INTERVAL_MS = 12000;
-  const MAX_FACT_CHARS = 260;       // keep it short and impactful
+  const MAX_FACT_CHARS = 300;       // keep it short and impactful
   const MAX_ANNOUNCE_PER_SCAN = 2;  // never blab
 
   const WIKI_API = "https://en.wikipedia.org/w/api.php";
@@ -454,12 +454,15 @@
 
     for (const hit of hits) {
       state.seen.add(hit.title);
-      const summary = await fetchSummary(hit.title);
+      const [summary, story] = await Promise.all([
+        fetchSummary(hit.title),
+        fetchStory(hit.title),
+      ]);
       if (!summary) continue;
       factCard({
         title: summary.title,
         quip: nextQuip(),
-        fact: summary.fact,
+        fact: story || summary.fact,
         distance: hit.dist,
         url: summary.url,
         image: summary.image,
@@ -468,6 +471,42 @@
       mapSpot(lat, lon, hit.lat, hit.lon, summary.title);
     }
     setDock(`${state.seen.size} spot${state.seen.size === 1 ? "" : "s"} covered. Onward!`, "🧭");
+  }
+
+  // Headings whose section reads like a story rather than a definition.
+  const STORY_HEADINGS = /^(history|origins?|construction|background|early history|founding|etymology and history|development)$/i;
+
+  // Pull the opening of the article's History-like section, so the guide
+  // tells you the story of a place instead of just defining it.
+  async function fetchStory(title) {
+    try {
+      const params = new URLSearchParams({
+        action: "query",
+        prop: "extracts",
+        explaintext: "1",
+        exsectionformat: "wiki",
+        redirects: "1",
+        titles: title,
+        format: "json",
+        origin: "*",
+      });
+      const res = await fetch(`${WIKI_API}?${params}`);
+      if (!res.ok) return null;
+      const pages = (await res.json())?.query?.pages ?? {};
+      const text = Object.values(pages)[0]?.extract;
+      if (!text) return null;
+      // plain text arrives with "== Heading ==" markers between sections
+      const parts = text.split(/^==\s*([^=\n]+?)\s*==\s*$/m);
+      for (let i = 1; i < parts.length - 1; i += 2) {
+        if (!STORY_HEADINGS.test(parts[i].trim())) continue;
+        const body = parts[i + 1].replace(/^===.*$/gm, " ").trim();
+        const story = trimFact(body);
+        if (story && story.length > 60) return story;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   async function fetchSummary(title) {
