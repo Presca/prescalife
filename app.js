@@ -83,8 +83,24 @@
     catch { return false; }
   }
 
+  // Same place = same title, or a stored snap within 60 m. Coordinates are
+  // the lasting identity (titles can vary); the title check keeps matches
+  // honest where two landmarks sit close together.
+  const SAME_PLACE_M = 60;
+
+  function samePlace(a, entry) {
+    if (a.title === entry.title) return true;
+    return a.lat != null && entry.lat != null &&
+      distanceMeters(a.lat, a.lon, entry.lat, entry.lon) < SAME_PLACE_M;
+  }
+
+  function findSnap(title, lat, lon) {
+    const probe = { title, lat, lon };
+    return loadCollection().find((i) => samePlace(i, probe)) || null;
+  }
+
   function addToCollection(entry) {
-    const items = loadCollection().filter((i) => i.title !== entry.title);
+    const items = loadCollection().filter((i) => !samePlace(i, entry));
     items.unshift(entry);
     // storage full → drop oldest snaps until it fits
     while (!saveCollection(items) && items.length > 1) items.pop();
@@ -141,6 +157,8 @@
         img: dataUrl,
         date: new Date().toISOString().slice(0, 10),
         url: target.url || null,
+        lat: target.lat ?? null,
+        lon: target.lon ?? null,
       });
     });
   }
@@ -285,7 +303,7 @@
 
   // Travel-stamp fact card. Shows an emoji tile until a real photo arrives;
   // returns a setImage(url) hook so images can load in after the card pops.
-  function factCard({ title, quip, fact, distance, url, image, emoji, direction }) {
+  function factCard({ title, quip, fact, distance, url, image, emoji, direction, lat, lon }) {
     const el = document.createElement("article");
     el.className = "card";
     const inner = document.createElement("div");
@@ -297,7 +315,9 @@
     media.textContent = emoji || "📍";
     inner.appendChild(media);
 
-    const setImage = (src) => {
+    // once the user's own photo is on the card, web images can't replace it
+    let lockedByUser = false;
+    const rawSetImage = (src) => {
       if (!src) return;
       const img = document.createElement("img");
       img.alt = title;
@@ -306,7 +326,15 @@
       img.onload = () => { media.textContent = ""; media.appendChild(img); };
       img.src = src;
     };
-    setImage(image);
+    const setImage = (src) => { if (!lockedByUser) rawSetImage(src); };
+
+    const priorSnap = findSnap(title, lat, lon);
+    if (priorSnap) {
+      lockedByUser = true;
+      rawSetImage(priorSnap.img);
+    } else {
+      setImage(image);
+    }
 
     const top = document.createElement("div");
     top.className = "card-top";
@@ -325,7 +353,9 @@
 
     const quipEl = document.createElement("p");
     quipEl.className = "card-quip";
-    quipEl.textContent = quip;
+    quipEl.textContent = priorSnap
+      ? `Welcome back! You snapped this one on ${priorSnap.date}. 🌟`
+      : quip;
     inner.appendChild(quipEl);
 
     const factEl = document.createElement("p");
@@ -346,12 +376,14 @@
     }
     const snap = document.createElement("button");
     snap.className = "btn ghost small snap-btn";
-    snap.textContent = "📸 I was here!";
+    snap.textContent = priorSnap ? "📸 Snap again" : "📸 I was here!";
     snap.addEventListener("click", () => {
       snapTarget = {
         title,
         url,
-        setImage,
+        lat,
+        lon,
+        setImage: (src) => { lockedByUser = true; rawSetImage(src); },
         markSnapped: () => {
           snap.textContent = "⭐ Snapped!";
           snap.disabled = true;
@@ -364,7 +396,8 @@
 
     feed.appendChild(el);
     el.scrollIntoView({ behavior: "smooth", block: "end" });
-    speak(`${spokenIntro(direction, distance)} ${title}. ${fact}`.trim());
+    const welcome = priorSnap ? "Welcome back! " : "";
+    speak(`${welcome}${spokenIntro(direction, distance)} ${title}. ${fact}`.trim());
     return { setImage };
   }
 
@@ -597,6 +630,8 @@
         url: summary.url,
         image: summary.image,
         direction: relativeDirection(lat, lon, hit.lat, hit.lon),
+        lat: hit.lat,
+        lon: hit.lon,
       });
       mapSpot(lat, lon, hit.lat, hit.lon, summary.title);
     }
