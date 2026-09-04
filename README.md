@@ -20,6 +20,9 @@ up until the next landmark. No blabbing, no umbrella, no tip jar.
 - **Read aloud** — facts are spoken by default via the browser's speech
   synthesis (best natural voice auto-picked); pause/resume from the dock,
   mute with 🔇/🔊.
+- **Snap & collect** — tap "📸 I was here!" on any card to take a photo:
+  it replaces the place's picture and saves the spot to your 📚 collection
+  (stored locally in your browser, no account needed).
 - Each place is announced **once per tour**, at most two per scan.
 
 ## Privacy

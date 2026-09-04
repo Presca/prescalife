@@ -22,7 +22,10 @@
         <p id="status-line" class="status">Ready when you are!</p>
       </div>
     </div>
-    <button id="voice-toggle" class="icon-btn" title="Read facts aloud" aria-pressed="true">🔊</button>
+    <div class="top-actions">
+      <button id="collection-btn" class="icon-btn" title="My collection">📚</button>
+      <button id="voice-toggle" class="icon-btn" title="Read facts aloud" aria-pressed="true">🔊</button>
+    </div>
   </header>
 
   <main id="feed" class="feed" aria-live="polite">
@@ -123,6 +126,20 @@
       </g>
     </svg>
   </div>
+
+  <section id="collection" class="collection hidden" aria-label="My collection">
+    <div class="collection-head">
+      <h2>📚 My collection</h2>
+      <button id="collection-close" class="icon-btn small" title="Close">✕</button>
+    </div>
+    <p id="collection-empty" class="collection-empty">
+      No snaps yet! Pass somewhere iconic, tap “📸 I was here!”, and your
+      photo lands in this collection.
+    </p>
+    <div id="collection-grid" class="collection-grid"></div>
+  </section>
+
+  <input type="file" id="snap-input" accept="image/*" capture="environment" hidden />
 
   <footer class="dock hidden" id="dock">
     <div class="dock-info">
