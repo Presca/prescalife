@@ -55,7 +55,9 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; cursor: pointer; border-radius: 12px; }
+.brand:active { transform: scale(0.98); }
+.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .top-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .brand-emoji { font-size: 1.8rem; }
 

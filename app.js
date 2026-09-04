@@ -64,6 +64,10 @@
   $("voice-toggle").addEventListener("click", toggleVoice);
   $("refresh-btn").addEventListener("click", refreshLocation);
   $("pause-btn").addEventListener("click", togglePause);
+  $("home-btn").addEventListener("click", goHome);
+  $("home-btn").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goHome(); }
+  });
   $("collection-btn").addEventListener("click", () => toggleCollection(true));
   $("collection-close").addEventListener("click", () => toggleCollection(false));
   $("snap-input").addEventListener("change", onSnapPicked);
@@ -806,6 +810,19 @@
       speechSynthesis.cancel();
     }
     state.speechPaused = false;
+  }
+
+  // Logo click: end whatever is running and show the landing screen again.
+  function goHome() {
+    stopWatching();
+    state.mode = "idle";
+    dock.classList.add("hidden");
+    toggleCollection(false);
+    feed.querySelectorAll(".card").forEach((c) => c.remove());
+    resetMap();
+    hero.classList.remove("hidden");
+    setStatus("Ready when you are!");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function endTour(statusText) {
