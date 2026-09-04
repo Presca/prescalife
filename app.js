@@ -64,6 +64,116 @@
   $("voice-toggle").addEventListener("click", toggleVoice);
   $("refresh-btn").addEventListener("click", refreshLocation);
   $("pause-btn").addEventListener("click", togglePause);
+  $("collection-btn").addEventListener("click", () => toggleCollection(true));
+  $("collection-close").addEventListener("click", () => toggleCollection(false));
+  $("snap-input").addEventListener("change", onSnapPicked);
+
+  // ---------- snaps & collection ----------
+  // Snapped places live in localStorage: [{title, img, date, url}], newest first.
+  const COLLECTION_KEY = "tgb-collection";
+  let snapTarget = null; // the card awaiting a camera picture
+
+  function loadCollection() {
+    try { return JSON.parse(localStorage.getItem(COLLECTION_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function saveCollection(items) {
+    try { localStorage.setItem(COLLECTION_KEY, JSON.stringify(items)); return true; }
+    catch { return false; }
+  }
+
+  function addToCollection(entry) {
+    const items = loadCollection().filter((i) => i.title !== entry.title);
+    items.unshift(entry);
+    // storage full → drop oldest snaps until it fits
+    while (!saveCollection(items) && items.length > 1) items.pop();
+    updateCollectionBadge();
+  }
+
+  function updateCollectionBadge() {
+    const n = loadCollection().length;
+    $("collection-btn").textContent = n > 0 ? `📚${n}` : "📚";
+  }
+
+  function toggleCollection(show) {
+    const el = $("collection");
+    el.classList.toggle("hidden", !show);
+    if (show) renderCollection();
+  }
+
+  function renderCollection() {
+    const grid = $("collection-grid");
+    grid.textContent = "";
+    const items = loadCollection();
+    $("collection-empty").classList.toggle("hidden", items.length > 0);
+    for (const it of items) {
+      const card = document.createElement("div");
+      card.className = "mini-stamp";
+      const img = document.createElement("img");
+      img.src = it.img;
+      img.alt = it.title;
+      card.appendChild(img);
+      const name = document.createElement("p");
+      name.className = "mini-name";
+      name.textContent = it.title;
+      card.appendChild(name);
+      const date = document.createElement("p");
+      date.className = "mini-date";
+      date.textContent = `📸 ${it.date}`;
+      card.appendChild(date);
+      grid.appendChild(card);
+    }
+  }
+
+  function onSnapPicked(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    const target = snapTarget;
+    snapTarget = null;
+    if (!file || !target) return;
+    downscalePhoto(file).then((dataUrl) => {
+      if (!dataUrl) return;
+      target.setImage(dataUrl);
+      target.markSnapped();
+      addToCollection({
+        title: target.title,
+        img: dataUrl,
+        date: new Date().toISOString().slice(0, 10),
+        url: target.url || null,
+      });
+    });
+  }
+
+  // Shrink a camera photo so a whole collection fits in localStorage.
+  async function downscalePhoto(file) {
+    try {
+      let src, w, h;
+      if (window.createImageBitmap) {
+        src = await createImageBitmap(file, { imageOrientation: "from-image" })
+          .catch(() => createImageBitmap(file));
+        w = src.width; h = src.height;
+      } else {
+        src = await new Promise((res, rej) => {
+          const img = new Image();
+          img.onload = () => res(img);
+          img.onerror = rej;
+          img.src = URL.createObjectURL(file);
+        });
+        w = src.naturalWidth; h = src.naturalHeight;
+      }
+      const scale = Math.min(1, 900 / Math.max(w, h));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(w * scale));
+      canvas.height = Math.max(1, Math.round(h * scale));
+      canvas.getContext("2d").drawImage(src, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", 0.72);
+    } catch {
+      return null;
+    }
+  }
+
+  updateCollectionBadge();
 
   // ---------- map ----------
   let map = null, userMarker = null, spotLine = null, spotLayer = null;
@@ -191,7 +301,8 @@
       if (!src) return;
       const img = document.createElement("img");
       img.alt = title;
-      img.loading = "lazy";
+      // no loading="lazy": a detached lazy image never loads, so onload
+      // would never fire and the photo would never replace the emoji
       img.onload = () => { media.textContent = ""; media.appendChild(img); };
       img.src = src;
     };
@@ -222,6 +333,8 @@
     factEl.textContent = fact;
     inner.appendChild(factEl);
 
+    const foot = document.createElement("div");
+    foot.className = "card-foot";
     if (url) {
       const link = document.createElement("a");
       link.className = "card-link";
@@ -229,8 +342,25 @@
       link.target = "_blank";
       link.rel = "noopener";
       link.textContent = "Rabbit hole →";
-      inner.appendChild(link);
+      foot.appendChild(link);
     }
+    const snap = document.createElement("button");
+    snap.className = "btn ghost small snap-btn";
+    snap.textContent = "📸 I was here!";
+    snap.addEventListener("click", () => {
+      snapTarget = {
+        title,
+        url,
+        setImage,
+        markSnapped: () => {
+          snap.textContent = "⭐ Snapped!";
+          snap.disabled = true;
+        },
+      };
+      $("snap-input").click();
+    });
+    foot.appendChild(snap);
+    inner.appendChild(foot);
 
     feed.appendChild(el);
     el.scrollIntoView({ behavior: "smooth", block: "end" });
