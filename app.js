@@ -111,6 +111,51 @@
     updateCollectionBadge();
   }
 
+  // Which country is this spot in? Free keyless reverse geocoding.
+  async function countryFor(lat, lon) {
+    if (lat == null) return null;
+    try {
+      const res = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+      );
+      if (!res.ok) return null;
+      const d = await res.json();
+      return d.countryName ? { country: d.countryName, cc: d.countryCode } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function flagEmoji(cc) {
+    if (!cc || cc.length !== 2) return "🌍";
+    return [...cc.toUpperCase()]
+      .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+      .join("");
+  }
+
+  // Fill in countries for snaps saved before we started recording them.
+  let backfilling = false;
+  async function backfillCountries() {
+    if (backfilling) return;
+    backfilling = true;
+    try {
+      const items = loadCollection();
+      let changed = false;
+      for (const it of items) {
+        if (!it.country && it.lat != null) {
+          const geo = await countryFor(it.lat, it.lon);
+          if (geo) { it.country = geo.country; it.cc = geo.cc; changed = true; }
+        }
+      }
+      if (changed) {
+        saveCollection(items);
+        if (!$("collection").classList.contains("hidden")) renderCollection();
+      }
+    } finally {
+      backfilling = false;
+    }
+  }
+
   function updateCollectionBadge() {
     const n = loadCollection().length;
     $("collection-btn").textContent = n > 0 ? `📚${n}` : "📚";
@@ -123,27 +168,58 @@
   }
 
   function renderCollection() {
-    const grid = $("collection-grid");
-    grid.textContent = "";
+    const container = $("collection-grid");
+    container.textContent = "";
     const items = loadCollection();
     $("collection-empty").classList.toggle("hidden", items.length > 0);
+
+    // group stamps by country, unknowns last
+    const groups = new Map();
     for (const it of items) {
-      const card = document.createElement("div");
-      card.className = "mini-stamp";
-      const img = document.createElement("img");
-      img.src = it.img;
-      img.alt = it.title;
-      card.appendChild(img);
-      const name = document.createElement("p");
-      name.className = "mini-name";
-      name.textContent = it.title;
-      card.appendChild(name);
-      const date = document.createElement("p");
-      date.className = "mini-date";
-      date.textContent = `📸 ${it.date}`;
-      card.appendChild(date);
-      grid.appendChild(card);
+      const key = it.country || "Somewhere on Earth";
+      if (!groups.has(key)) groups.set(key, { cc: it.cc, items: [] });
+      groups.get(key).items.push(it);
     }
+    const ordered = [...groups.entries()].sort(([a], [b]) =>
+      a === "Somewhere on Earth" ? 1 : b === "Somewhere on Earth" ? -1 : a.localeCompare(b)
+    );
+
+    for (const [country, group] of ordered) {
+      const head = document.createElement("h3");
+      head.className = "country-head";
+      head.textContent = `${flagEmoji(group.cc)} ${country} `;
+      const count = document.createElement("span");
+      count.className = "count";
+      count.textContent = `${group.items.length} stamp${group.items.length === 1 ? "" : "s"}`;
+      head.appendChild(count);
+      container.appendChild(head);
+
+      const grid = document.createElement("div");
+      grid.className = "country-grid";
+      for (const it of group.items) {
+        const stamp = document.createElement("div");
+        stamp.className = "mini-stamp";
+        const shape = document.createElement("div");
+        shape.className = "stamp-shape";
+        stamp.appendChild(shape);
+        const img = document.createElement("img");
+        img.src = it.img;
+        img.alt = it.title;
+        shape.appendChild(img);
+        const name = document.createElement("p");
+        name.className = "mini-name";
+        name.textContent = it.title;
+        shape.appendChild(name);
+        const date = document.createElement("p");
+        date.className = "mini-date";
+        date.textContent = `📸 ${it.date}`;
+        shape.appendChild(date);
+        grid.appendChild(stamp);
+      }
+      container.appendChild(grid);
+    }
+
+    backfillCountries();
   }
 
   function onSnapPicked(e) {
@@ -152,10 +228,11 @@
     const target = snapTarget;
     snapTarget = null;
     if (!file || !target) return;
-    downscalePhoto(file).then((dataUrl) => {
+    downscalePhoto(file).then(async (dataUrl) => {
       if (!dataUrl) return;
       target.setImage(dataUrl);
       target.markSnapped();
+      const geo = await countryFor(target.lat ?? null, target.lon ?? null);
       addToCollection({
         title: target.title,
         img: dataUrl,
@@ -163,6 +240,8 @@
         url: target.url || null,
         lat: target.lat ?? null,
         lon: target.lon ?? null,
+        country: geo?.country || null,
+        cc: geo?.cc || null,
       });
     });
   }
@@ -310,9 +389,12 @@
   function factCard({ title, quip, fact, distance, url, image, emoji, direction, lat, lon }) {
     const el = document.createElement("article");
     el.className = "card";
+    const body = document.createElement("div");
+    body.className = "stamp-shape";
+    el.appendChild(body);
     const inner = document.createElement("div");
     inner.className = "stamp-inner";
-    el.appendChild(inner);
+    body.appendChild(inner);
 
     const media = document.createElement("div");
     media.className = "card-media";

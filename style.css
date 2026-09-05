@@ -173,22 +173,32 @@ body {
 .btn.danger { background: var(--card); color: var(--danger); border: 1px solid var(--danger); }
 
 /* ---------- stamp cards ---------- */
+/* Scalloped postage-stamp edge: the mask keeps a grid of bumps along the
+   border plus the inner rectangle; drop-shadow (not box-shadow) so the
+   shadow follows the scallops. */
+.stamp-shape {
+  --r: 9px;
+  background: var(--card);
+  padding: calc(var(--r) + 8px);
+  -webkit-mask:
+    radial-gradient(closest-side, #000 92%, #0000) calc(-1 * var(--r)) calc(-1 * var(--r)) / calc(2 * var(--r)) calc(2 * var(--r)) round,
+    linear-gradient(#000 0 0) 50% 50% / calc(100% - 2 * var(--r)) calc(100% - 2 * var(--r)) no-repeat;
+  mask:
+    radial-gradient(closest-side, #000 92%, #0000) calc(-1 * var(--r)) calc(-1 * var(--r)) / calc(2 * var(--r)) calc(2 * var(--r)) round,
+    linear-gradient(#000 0 0) 50% 50% / calc(100% - 2 * var(--r)) calc(100% - 2 * var(--r)) no-repeat;
+}
+
 .card {
   position: relative;
   z-index: 1;
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 14px;
-  box-shadow: 0 8px 22px rgba(90, 70, 40, 0.13);
   animation: pop-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
+.card:not(.system) { filter: drop-shadow(0 6px 10px rgba(90, 70, 40, 0.22)); }
 .card:nth-of-type(odd) { transform: rotate(-1deg); }
 .card:nth-of-type(even) { transform: rotate(1deg); }
 
 .stamp-inner {
-  border: 2px dashed #dccfb6;
-  border-radius: calc(var(--radius) - 8px);
-  padding: 12px 14px 14px;
+  padding: 8px 8px 10px;
 }
 
 @keyframes pop-in {
@@ -199,7 +209,7 @@ body {
 .card-media {
   width: 100%;
   height: 170px;
-  border-radius: 12px;
+  border-radius: 6px;
   overflow: hidden;
   margin-bottom: 12px;
   display: flex;
@@ -302,20 +312,34 @@ body {
 }
 
 .collection-grid {
+  max-width: 560px;
+  margin: 4px auto 0;
+}
+
+.country-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 560px;
+  margin: 22px auto 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.country-head .count { font-family: var(--font-body); font-weight: 600; font-size: 0.78rem; color: var(--ink-dim); }
+
+.country-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 14px;
   max-width: 560px;
-  margin: 10px auto 0;
+  margin: 0 auto;
 }
 
 .mini-stamp {
-  background: var(--card);
-  border: 2px dashed #dccfb6;
-  border-radius: 16px;
-  padding: 10px;
-  box-shadow: 0 6px 16px rgba(90, 70, 40, 0.12);
+  filter: drop-shadow(0 5px 8px rgba(90, 70, 40, 0.2));
 }
+.mini-stamp .stamp-shape { --r: 6px; }
 .mini-stamp:nth-child(odd) { transform: rotate(-1deg); }
 .mini-stamp:nth-child(even) { transform: rotate(1deg); }
 
@@ -323,7 +347,6 @@ body {
   width: 100%;
   height: 130px;
   object-fit: cover;
-  border-radius: 10px;
   display: block;
 }
 
@@ -335,12 +358,13 @@ body {
   letter-spacing: 0.03em;
   color: var(--accent);
   margin-top: 8px;
+  padding: 0 2px;
 }
 .mini-stamp:nth-child(4n+2) .mini-name { color: var(--teal); }
 .mini-stamp:nth-child(4n+3) .mini-name { color: var(--red); }
 .mini-stamp:nth-child(4n) .mini-name { color: var(--green); }
 
-.mini-date { font-size: 0.7rem; color: var(--ink-dim); margin-top: 2px; }
+.mini-date { font-size: 0.7rem; color: var(--ink-dim); margin-top: 2px; padding: 0 2px 2px; }
 
 .card.system {
   background: color-mix(in srgb, var(--card) 88%, transparent);
