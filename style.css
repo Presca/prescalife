@@ -191,14 +191,19 @@ body {
 .card {
   position: relative;
   z-index: 1;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: 0 8px 22px rgba(90, 70, 40, 0.13);
   animation: pop-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
-.card:not(.system) { filter: drop-shadow(0 6px 10px rgba(90, 70, 40, 0.22)); }
 .card:nth-of-type(odd) { transform: rotate(-1deg); }
 .card:nth-of-type(even) { transform: rotate(1deg); }
 
 .stamp-inner {
-  padding: 8px 8px 10px;
+  border: 2px dashed #dccfb6;
+  border-radius: calc(var(--radius) - 8px);
+  padding: 12px 14px 14px;
 }
 
 @keyframes pop-in {
@@ -209,7 +214,7 @@ body {
 .card-media {
   width: 100%;
   height: 170px;
-  border-radius: 6px;
+  border-radius: 12px;
   overflow: hidden;
   margin-bottom: 12px;
   display: flex;
@@ -271,7 +276,6 @@ body {
 .card-foot .card-link { margin-top: 0; }
 .snap-btn { margin-left: auto; }
 .snap-btn:disabled { opacity: 0.7; cursor: default; }
-.gallery-btn { flex: none; }
 
 .card-media { position: relative; }
 .card-media.cyclable, .mini-media.cyclable { cursor: pointer; }
