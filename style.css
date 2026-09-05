@@ -181,10 +181,10 @@ body {
   background: var(--card);
   padding: calc(var(--r) + 8px);
   -webkit-mask:
-    radial-gradient(closest-side, #000 92%, #0000) calc(-1 * var(--r)) calc(-1 * var(--r)) / calc(2 * var(--r)) calc(2 * var(--r)) round,
+    radial-gradient(closest-side, #000 98%, #0000) 0 0 / calc(2 * var(--r)) calc(2 * var(--r)) round,
     linear-gradient(#000 0 0) 50% 50% / calc(100% - 2 * var(--r)) calc(100% - 2 * var(--r)) no-repeat;
   mask:
-    radial-gradient(closest-side, #000 92%, #0000) calc(-1 * var(--r)) calc(-1 * var(--r)) / calc(2 * var(--r)) calc(2 * var(--r)) round,
+    radial-gradient(closest-side, #000 98%, #0000) 0 0 / calc(2 * var(--r)) calc(2 * var(--r)) round,
     linear-gradient(#000 0 0) 50% 50% / calc(100% - 2 * var(--r)) calc(100% - 2 * var(--r)) no-repeat;
 }
 
@@ -363,7 +363,7 @@ body {
 .mini-stamp {
   filter: drop-shadow(0 5px 8px rgba(90, 70, 40, 0.2));
 }
-.mini-stamp .stamp-shape { --r: 6px; }
+.mini-stamp .stamp-shape { --r: 8px; }
 .mini-stamp:nth-child(odd) { transform: rotate(-1deg); }
 .mini-stamp:nth-child(even) { transform: rotate(1deg); }
 
