@@ -78,8 +78,13 @@
   let snapTarget = null; // the card awaiting a camera picture
 
   function loadCollection() {
-    try { return JSON.parse(localStorage.getItem(COLLECTION_KEY)) || []; }
-    catch { return []; }
+    try {
+      const raw = JSON.parse(localStorage.getItem(COLLECTION_KEY)) || [];
+      // migrate pre-history entries ({img, date}) to a photos array
+      return raw.map((i) =>
+        i.photos ? i : { ...i, photos: [{ img: i.img, date: i.date }], img: undefined, date: undefined }
+      );
+    } catch { return []; }
   }
 
   function saveCollection(items) {
@@ -103,10 +108,26 @@
     return loadCollection().find((i) => samePlace(i, probe)) || null;
   }
 
-  function addToCollection(entry) {
-    const items = loadCollection().filter((i) => !samePlace(i, entry));
-    items.unshift(entry);
-    // storage full → drop oldest snaps until it fits
+  const MAX_PHOTOS_PER_PLACE = 10;
+
+  // Add a photo to a place's history (newest first), never losing old shots.
+  function addSnap(probe, photo) {
+    const items = loadCollection();
+    const existing = items.find((i) => samePlace(i, probe));
+    if (existing) {
+      existing.photos.unshift(photo);
+      if (existing.photos.length > MAX_PHOTOS_PER_PLACE) existing.photos.pop();
+      existing.lat ??= probe.lat;
+      existing.lon ??= probe.lon;
+      existing.country ??= probe.country;
+      existing.cc ??= probe.cc;
+      existing.url ??= probe.url;
+      items.splice(items.indexOf(existing), 1);
+      items.unshift(existing);
+    } else {
+      items.unshift({ ...probe, photos: [photo] });
+    }
+    // storage full → drop oldest places until it fits
     while (!saveCollection(items) && items.length > 1) items.pop();
     updateCollectionBadge();
   }
@@ -202,18 +223,41 @@
         const shape = document.createElement("div");
         shape.className = "stamp-shape";
         stamp.appendChild(shape);
+
+        const mediaWrap = document.createElement("div");
+        mediaWrap.className = "mini-media";
         const img = document.createElement("img");
-        img.src = it.img;
         img.alt = it.title;
-        shape.appendChild(img);
+        mediaWrap.appendChild(img);
+        const chip = document.createElement("span");
+        chip.className = "photo-chip";
+        mediaWrap.appendChild(chip);
+        shape.appendChild(mediaWrap);
+
         const name = document.createElement("p");
         name.className = "mini-name";
         name.textContent = it.title;
         shape.appendChild(name);
         const date = document.createElement("p");
         date.className = "mini-date";
-        date.textContent = `📸 ${it.date}`;
         shape.appendChild(date);
+
+        // tap the photo to flip through this place's history
+        let idx = 0;
+        const show = () => {
+          img.src = it.photos[idx].img;
+          date.textContent = `📸 ${it.photos[idx].date}`;
+          chip.classList.toggle("hidden", it.photos.length < 2);
+          mediaWrap.classList.toggle("cyclable", it.photos.length > 1);
+          if (it.photos.length > 1) chip.textContent = `${idx + 1}/${it.photos.length}`;
+        };
+        mediaWrap.addEventListener("click", () => {
+          if (it.photos.length < 2) return;
+          idx = (idx + 1) % it.photos.length;
+          show();
+        });
+        show();
+
         grid.appendChild(stamp);
       }
       container.appendChild(grid);
@@ -230,19 +274,20 @@
     if (!file || !target) return;
     downscalePhoto(file).then(async (dataUrl) => {
       if (!dataUrl) return;
-      target.setImage(dataUrl);
-      target.markSnapped();
+      const photo = { img: dataUrl, date: new Date().toISOString().slice(0, 10) };
+      target.addPhoto(photo);
       const geo = await countryFor(target.lat ?? null, target.lon ?? null);
-      addToCollection({
-        title: target.title,
-        img: dataUrl,
-        date: new Date().toISOString().slice(0, 10),
-        url: target.url || null,
-        lat: target.lat ?? null,
-        lon: target.lon ?? null,
-        country: geo?.country || null,
-        cc: geo?.cc || null,
-      });
+      addSnap(
+        {
+          title: target.title,
+          url: target.url || null,
+          lat: target.lat ?? null,
+          lon: target.lon ?? null,
+          country: geo?.country || null,
+          cc: geo?.cc || null,
+        },
+        photo
+      );
     });
   }
 
@@ -403,21 +448,46 @@
 
     // once the user's own photo is on the card, web images can't replace it
     let lockedByUser = false;
+    const chip = document.createElement("span");
+    chip.className = "photo-chip hidden";
     const rawSetImage = (src) => {
       if (!src) return;
       const img = document.createElement("img");
       img.alt = title;
       // no loading="lazy": a detached lazy image never loads, so onload
       // would never fire and the photo would never replace the emoji
-      img.onload = () => { media.textContent = ""; media.appendChild(img); };
+      img.onload = () => {
+        media.textContent = "";
+        media.appendChild(img);
+        media.appendChild(chip);
+      };
       img.src = src;
     };
     const setImage = (src) => { if (!lockedByUser) rawSetImage(src); };
 
+    // the place's photo history (newest first), browsable by tapping the photo
     const priorSnap = findSnap(title, lat, lon);
+    const photos = priorSnap ? priorSnap.photos.slice() : [];
+    let photoIdx = 0;
+    const updateChip = () => {
+      chip.classList.toggle("hidden", photos.length < 2);
+      media.classList.toggle("cyclable", photos.length > 1);
+      if (photos.length > 1) {
+        chip.textContent = `📸 ${photoIdx + 1}/${photos.length} · ${photos[photoIdx].date}`;
+      }
+    };
+    media.addEventListener("click", () => {
+      if (photos.length < 2) return;
+      photoIdx = (photoIdx + 1) % photos.length;
+      lockedByUser = true;
+      rawSetImage(photos[photoIdx].img);
+      updateChip();
+    });
+
     if (priorSnap) {
       lockedByUser = true;
-      rawSetImage(priorSnap.img);
+      rawSetImage(photos[0].img);
+      updateChip();
     } else {
       setImage(image);
     }
@@ -440,7 +510,7 @@
     const quipEl = document.createElement("p");
     quipEl.className = "card-quip";
     quipEl.textContent = priorSnap
-      ? `Welcome back! You snapped this one on ${priorSnap.date}. 🌟`
+      ? `Welcome back! You first snapped this on ${photos[photos.length - 1].date}. 🌟`
       : quip;
     inner.appendChild(quipEl);
 
@@ -460,6 +530,13 @@
       link.textContent = "Rabbit hole →";
       foot.appendChild(link);
     }
+    const galleryBtn = document.createElement("button");
+    galleryBtn.className = "btn ghost small gallery-btn";
+    galleryBtn.textContent = "📚 My stamps";
+    galleryBtn.classList.toggle("hidden", !priorSnap);
+    galleryBtn.addEventListener("click", () => toggleCollection(true));
+    foot.appendChild(galleryBtn);
+
     const snap = document.createElement("button");
     snap.className = "btn ghost small snap-btn";
     snap.textContent = priorSnap ? "📸 Snap again" : "📸 I was here!";
@@ -469,10 +546,16 @@
         url,
         lat,
         lon,
-        setImage: (src) => { lockedByUser = true; rawSetImage(src); },
-        markSnapped: () => {
+        addPhoto: (photo) => {
+          lockedByUser = true;
+          photos.unshift(photo);
+          photoIdx = 0;
+          rawSetImage(photo.img);
+          updateChip();
           snap.textContent = "⭐ Snapped!";
-          snap.disabled = true;
+          snap.disabled = false;
+          setTimeout(() => { snap.textContent = "📸 Snap again"; }, 2500);
+          galleryBtn.classList.remove("hidden");
         },
       };
       $("snap-input").click();

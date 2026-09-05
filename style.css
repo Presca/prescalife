@@ -271,6 +271,26 @@ body {
 .card-foot .card-link { margin-top: 0; }
 .snap-btn { margin-left: auto; }
 .snap-btn:disabled { opacity: 0.7; cursor: default; }
+.gallery-btn { flex: none; }
+
+.card-media { position: relative; }
+.card-media.cyclable, .mini-media.cyclable { cursor: pointer; }
+
+.photo-chip {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: rgba(20, 15, 8, 0.6);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.mini-media { position: relative; }
+.mini-media .photo-chip { right: 6px; bottom: 6px; }
 
 /* ---------- collection ---------- */
 .collection {
