@@ -434,12 +434,9 @@
   function factCard({ title, quip, fact, distance, url, image, emoji, direction, lat, lon }) {
     const el = document.createElement("article");
     el.className = "card";
-    const body = document.createElement("div");
-    body.className = "stamp-shape";
-    el.appendChild(body);
     const inner = document.createElement("div");
     inner.className = "stamp-inner";
-    body.appendChild(inner);
+    el.appendChild(inner);
 
     const media = document.createElement("div");
     media.className = "card-media";
@@ -530,13 +527,6 @@
       link.textContent = "Rabbit hole →";
       foot.appendChild(link);
     }
-    const galleryBtn = document.createElement("button");
-    galleryBtn.className = "btn ghost small gallery-btn";
-    galleryBtn.textContent = "📚 My stamps";
-    galleryBtn.classList.toggle("hidden", !priorSnap);
-    galleryBtn.addEventListener("click", () => toggleCollection(true));
-    foot.appendChild(galleryBtn);
-
     const snap = document.createElement("button");
     snap.className = "btn ghost small snap-btn";
     snap.textContent = priorSnap ? "📸 Snap again" : "📸 I was here!";
@@ -555,7 +545,6 @@
           snap.textContent = "⭐ Snapped!";
           snap.disabled = false;
           setTimeout(() => { snap.textContent = "📸 Snap again"; }, 2500);
-          galleryBtn.classList.remove("hidden");
         },
       };
       $("snap-input").click();
