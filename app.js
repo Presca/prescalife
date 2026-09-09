@@ -73,23 +73,89 @@
   $("snap-input").addEventListener("change", onSnapPicked);
 
   // ---------- snaps & collection ----------
-  // Snapped places live in localStorage: [{title, img, date, url}], newest first.
+  // Snapped places live in IndexedDB (hundreds of MB of room, so photos
+  // are never silently dropped). Stamps from the old localStorage store
+  // migrate in on first load; localStorage remains only as a fallback
+  // when IndexedDB is unavailable. All reads go through an in-memory
+  // cache so the rest of the app stays synchronous.
   const COLLECTION_KEY = "tgb-collection";
   let snapTarget = null; // the card awaiting a camera picture
+  let collectionCache = [];
 
-  function loadCollection() {
+  function migrateEntry(i) {
+    // pre-history entries ({img, date}) become a photos array
+    return i.photos ? i : { ...i, photos: [{ img: i.img, date: i.date }], img: undefined, date: undefined };
+  }
+
+  function legacyLoad() {
     try {
-      const raw = JSON.parse(localStorage.getItem(COLLECTION_KEY)) || [];
-      // migrate pre-history entries ({img, date}) to a photos array
-      return raw.map((i) =>
-        i.photos ? i : { ...i, photos: [{ img: i.img, date: i.date }], img: undefined, date: undefined }
-      );
+      return (JSON.parse(localStorage.getItem(COLLECTION_KEY)) || []).map(migrateEntry);
     } catch { return []; }
   }
 
-  function saveCollection(items) {
-    try { localStorage.setItem(COLLECTION_KEY, JSON.stringify(items)); return true; }
-    catch { return false; }
+  function idbOpen() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open("tgb", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("kv");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbGet(key) {
+    const db = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const req = db.transaction("kv").objectStore("kv").get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbSet(key, val) {
+    const db = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put(val, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  async function initCollection() {
+    try {
+      let items = await idbGet("collection");
+      if (!items || items.length === 0) {
+        // first run on this device since the IndexedDB move: bring any
+        // stamps over from localStorage (the old copy stays as a backup)
+        items = legacyLoad();
+        if (items.length) await idbSet("collection", items);
+      }
+      collectionCache = (items || []).map(migrateEntry);
+    } catch {
+      collectionCache = legacyLoad();
+    }
+    updateCollectionBadge();
+  }
+
+  function loadCollection() {
+    return collectionCache;
+  }
+
+  // Persist in the background. Never deletes anything to "make room":
+  // if storage genuinely fails, the user is told instead.
+  let warnedStorage = false;
+  function persistCollection() {
+    idbSet("collection", collectionCache).catch(() => {
+      try {
+        localStorage.setItem(COLLECTION_KEY, JSON.stringify(collectionCache));
+      } catch {
+        if (!warnedStorage) {
+          warnedStorage = true;
+          systemCard("⚠️ Your device storage is full — new snaps may not survive closing the app. Old stamps were NOT deleted.");
+        }
+      }
+    });
   }
 
   // Same place = same title, or a stored snap within 60 m. Coordinates are
@@ -108,15 +174,12 @@
     return loadCollection().find((i) => samePlace(i, probe)) || null;
   }
 
-  const MAX_PHOTOS_PER_PLACE = 10;
-
   // Add a photo to a place's history (newest first), never losing old shots.
   function addSnap(probe, photo) {
     const items = loadCollection();
     const existing = items.find((i) => samePlace(i, probe));
     if (existing) {
       existing.photos.unshift(photo);
-      if (existing.photos.length > MAX_PHOTOS_PER_PLACE) existing.photos.pop();
       existing.lat ??= probe.lat;
       existing.lon ??= probe.lon;
       existing.country ??= probe.country;
@@ -127,8 +190,7 @@
     } else {
       items.unshift({ ...probe, photos: [photo] });
     }
-    // storage full → drop oldest places until it fits
-    while (!saveCollection(items) && items.length > 1) items.pop();
+    persistCollection();
     updateCollectionBadge();
   }
 
@@ -169,7 +231,7 @@
         }
       }
       if (changed) {
-        saveCollection(items);
+        persistCollection();
         if (!$("collection").classList.contains("hidden")) renderCollection();
       }
     } finally {
@@ -319,7 +381,7 @@
     }
   }
 
-  updateCollectionBadge();
+  initCollection();
 
   // ---------- map ----------
   let map = null, userMarker = null, spotLine = null, spotLayer = null;
