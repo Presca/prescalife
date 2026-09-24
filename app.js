@@ -11,6 +11,7 @@
 
   // ---------- config ----------
   const SEARCH_RADIUS_M = 500;      // "we're passing it" distance (urban GPS drifts)
+  const WIDE_RADIUS_M = 1500;       // fallback net for big natural features
   const MIN_MOVE_M = 25;            // re-scan only after moving this far
   const MIN_SCAN_INTERVAL_MS = 12000;
   const MAX_FACT_CHARS = 300;       // keep it short and impactful
@@ -826,12 +827,12 @@
       .sort((a, b) => (b.length || 0) - (a.length || 0));
   }
 
-  async function scanNearby(lat, lon) {
+  async function scanRadius(lat, lon, radius, maxAnnounce) {
     const params = new URLSearchParams({
       action: "query",
       generator: "geosearch",
       ggscoord: `${lat}|${lon}`,
-      ggsradius: String(SEARCH_RADIUS_M),
+      ggsradius: String(radius),
       ggslimit: "50",
       prop: "coordinates|info",
       format: "json",
@@ -853,14 +854,10 @@
     });
 
     const hits = rankNearby(pages);
-    if (hits.length === 0) {
-      setDock("All quiet. Keep strolling…", "🚶");
-      return;
-    }
-
     let announced = 0;
+    let sawCandidates = hits.length > 0;
     for (const hit of hits) {
-      if (announced >= MAX_ANNOUNCE_PER_SCAN) break;
+      if (announced >= maxAnnounce) break;
       const [summary, story] = await Promise.all([
         fetchSummary(hit.title),
         fetchStory(hit.title),
@@ -882,10 +879,26 @@
       });
       mapSpot(lat, lon, hit.lat, hit.lon, summary.title);
     }
+    return { announced, sawCandidates };
+  }
+
+  async function scanNearby(lat, lon) {
+    let { announced, sawCandidates } = await scanRadius(lat, lon, SEARCH_RADIUS_M, MAX_ANNOUNCE_PER_SCAN);
+
+    // Nothing close by? Big natural features (valleys, parks, lakes) keep
+    // their map pin far from where you stand inside them — widen the net.
+    if (announced === 0) {
+      const wide = await scanRadius(lat, lon, WIDE_RADIUS_M, 1);
+      announced += wide.announced;
+      sawCandidates = sawCandidates || wide.sawCandidates;
+    }
+
     if (announced > 0) {
       setDock(`${state.seen.size} spot${state.seen.size === 1 ? "" : "s"} covered. Onward!`, "🧭");
-    } else {
+    } else if (sawCandidates) {
       setDock("Spots nearby, but the details won't load — retrying soon.", "📡");
+    } else {
+      setDock("All quiet. Keep strolling…", "🚶");
     }
   }
 
