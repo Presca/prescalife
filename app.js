@@ -12,10 +12,11 @@
   // ---------- config ----------
   const SEARCH_RADIUS_M = 500;      // "we're passing it" distance (urban GPS drifts)
   const WIDE_RADIUS_M = 1500;       // fallback net for big natural features
-  const MIN_MOVE_M = 25;            // re-scan only after moving this far
-  const MIN_SCAN_INTERVAL_MS = 12000;
+  const MIN_MOVE_M = 50;            // re-scan only after moving this far
+  const MIN_SCAN_INTERVAL_MS = 30000;
   const MAX_FACT_CHARS = 300;       // keep it short and impactful
-  const MAX_ANNOUNCE_PER_SCAN = 2;  // never blab
+  const MAX_ANNOUNCE_PER_SCAN = 1;  // never blab: one place at a time
+  const NOTABLE_MIN_BYTES = 5000;   // ignore stub articles entirely
 
   const WIKI_API = "https://en.wikipedia.org/w/api.php";
   const WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary/";
@@ -823,7 +824,12 @@
   // otherwise crowd out the actual icon a block away.
   function rankNearby(pages) {
     return pages
-      .filter((p) => p.title && !state.seen.has(p.title) && !SKIP_TITLE_RE.test(p.title))
+      .filter((p) =>
+        p.title &&
+        (p.length || 0) >= NOTABLE_MIN_BYTES &&
+        !state.seen.has(p.title) &&
+        !SKIP_TITLE_RE.test(p.title)
+      )
       .sort((a, b) => (b.length || 0) - (a.length || 0));
   }
 
