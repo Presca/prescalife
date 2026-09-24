@@ -23,10 +23,16 @@
       </div>
     </div>
     <div class="top-actions">
+      <button id="search-btn" class="icon-btn" title="Find a place">🔍</button>
       <button id="collection-btn" class="icon-btn" title="I was here!">📚</button>
       <button id="voice-toggle" class="icon-btn" title="Read facts aloud" aria-pressed="true">🔊</button>
     </div>
   </header>
+
+  <div id="search-bar" class="search-bar hidden">
+    <input id="search-input" type="search" placeholder="Find a place… e.g. Big Ben" enterkeyhint="search" autocomplete="off" />
+    <button id="search-go" class="btn primary small">Find</button>
+  </div>
 
   <main id="feed" class="feed" aria-live="polite">
     <section id="map-panel" class="map-card hidden" aria-label="Tour map">

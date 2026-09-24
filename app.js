@@ -10,7 +10,7 @@
   "use strict";
 
   // ---------- config ----------
-  const SEARCH_RADIUS_M = 250;      // "we're passing it" distance
+  const SEARCH_RADIUS_M = 500;      // "we're passing it" distance (urban GPS drifts)
   const MIN_MOVE_M = 25;            // re-scan only after moving this far
   const MIN_SCAN_INTERVAL_MS = 12000;
   const MAX_FACT_CHARS = 300;       // keep it short and impactful
@@ -428,6 +428,11 @@
     showMap();
     L.marker([lat, lon], { icon: pin("📍") }).addTo(spotLayer).bindTooltip(title);
     if (spotLine) spotLine.remove();
+    if (uLat == null) {
+      // no fix on the user (e.g. a searched place before any tour)
+      map.setView([lat, lon], 15);
+      return;
+    }
     spotLine = L.polyline([[uLat, uLon], [lat, lon]], {
       color: "#e8763c",
       weight: 3,
@@ -812,13 +817,23 @@
     });
   }
 
+  // Rank nearby articles by substance (article length), not raw proximity —
+  // in dense cities the nearest pages are often minor stubs that would
+  // otherwise crowd out the actual icon a block away.
+  function rankNearby(pages) {
+    return pages
+      .filter((p) => p.title && !state.seen.has(p.title) && !SKIP_TITLE_RE.test(p.title))
+      .sort((a, b) => (b.length || 0) - (a.length || 0));
+  }
+
   async function scanNearby(lat, lon) {
     const params = new URLSearchParams({
       action: "query",
-      list: "geosearch",
-      gscoord: `${lat}|${lon}`,
-      gsradius: String(SEARCH_RADIUS_M),
-      gslimit: "10",
+      generator: "geosearch",
+      ggscoord: `${lat}|${lon}`,
+      ggsradius: String(SEARCH_RADIUS_M),
+      ggslimit: "50",
+      prop: "coordinates|info",
       format: "json",
       origin: "*",
     });
@@ -826,22 +841,34 @@
     if (!res.ok) throw new Error(`geosearch ${res.status}`);
     const data = await res.json();
 
-    const hits = (data?.query?.geosearch ?? [])
-      .filter((p) => !state.seen.has(p.title) && !SKIP_TITLE_RE.test(p.title))
-      .slice(0, MAX_ANNOUNCE_PER_SCAN);
+    const pages = Object.values(data?.query?.pages ?? {}).map((p) => {
+      const c = p.coordinates?.[0];
+      return {
+        title: p.title,
+        length: p.length || 0,
+        lat: c?.lat ?? null,
+        lon: c?.lon ?? null,
+        dist: c ? distanceMeters(lat, lon, c.lat, c.lon) : null,
+      };
+    });
 
+    const hits = rankNearby(pages);
     if (hits.length === 0) {
       setDock("All quiet. Keep strolling…", "🚶");
       return;
     }
 
+    let announced = 0;
     for (const hit of hits) {
-      state.seen.add(hit.title);
+      if (announced >= MAX_ANNOUNCE_PER_SCAN) break;
       const [summary, story] = await Promise.all([
         fetchSummary(hit.title),
         fetchStory(hit.title),
       ]);
+      // a failed lookup is NOT marked seen, so a network blip retries next scan
       if (!summary) continue;
+      state.seen.add(hit.title);
+      announced++;
       factCard({
         title: summary.title,
         quip: nextQuip(),
@@ -855,8 +882,82 @@
       });
       mapSpot(lat, lon, hit.lat, hit.lon, summary.title);
     }
-    setDock(`${state.seen.size} spot${state.seen.size === 1 ? "" : "s"} covered. Onward!`, "🧭");
+    if (announced > 0) {
+      setDock(`${state.seen.size} spot${state.seen.size === 1 ? "" : "s"} covered. Onward!`, "🧭");
+    } else {
+      setDock("Spots nearby, but the details won't load — retrying soon.", "📡");
+    }
   }
+
+  // ---------- find a place by name ----------
+  function toggleSearch(show) {
+    const bar = $("search-bar");
+    const wanted = show ?? bar.classList.contains("hidden");
+    bar.classList.toggle("hidden", !wanted);
+    if (wanted) $("search-input").focus();
+  }
+
+  async function findPlace(query) {
+    const q = query.trim();
+    if (!q) return;
+    toggleSearch(false);
+    $("search-input").value = "";
+    setStatus(`Looking up “${q}”…`);
+    try {
+      // best-matching article, with its coordinates in the same request
+      const params = new URLSearchParams({
+        action: "query",
+        generator: "search",
+        gsrsearch: q,
+        gsrlimit: "1",
+        prop: "coordinates",
+        format: "json",
+        origin: "*",
+      });
+      const res = await fetch(`${WIKI_API}?${params}`);
+      const page = Object.values((await res.json())?.query?.pages ?? {})[0];
+      if (!page) {
+        systemCard(`Couldn't find “${q}”. Even I have limits. Try another spelling?`);
+        setStatus("Ready when you are!");
+        return;
+      }
+      const coords = page.coordinates?.[0];
+      const [summary, story] = await Promise.all([
+        fetchSummary(page.title),
+        fetchStory(page.title),
+      ]);
+      if (!summary) {
+        systemCard(`Found “${page.title}” but its story won't load right now. Try again in a moment.`);
+        setStatus("Ready when you are!");
+        return;
+      }
+      const here = state.prevFix;
+      const dist = coords && here ? distanceMeters(here.lat, here.lon, coords.lat, coords.lon) : null;
+      state.seen.add(page.title); // don't re-announce it if a tour passes by
+      factCard({
+        title: summary.title,
+        quip: "You asked, I looked it up. Concierge service. 🛎️",
+        fact: story || summary.fact,
+        distance: dist,
+        url: summary.url,
+        image: summary.image,
+        direction: coords && here ? relativeDirection(here.lat, here.lon, coords.lat, coords.lon) : null,
+        lat: coords?.lat ?? null,
+        lon: coords?.lon ?? null,
+      });
+      if (coords) mapSpot(here?.lat ?? null, here?.lon ?? null, coords.lat, coords.lon, summary.title);
+      setStatus(state.mode === "idle" ? "Ready when you are!" : "On tour! Wander freely.");
+    } catch {
+      systemCard("Search hiccup — check your connection and try again.");
+      setStatus("Ready when you are!");
+    }
+  }
+
+  $("search-btn").addEventListener("click", () => toggleSearch());
+  $("search-go").addEventListener("click", () => findPlace($("search-input").value));
+  $("search-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") findPlace($("search-input").value);
+  });
 
   // Headings whose section reads like a story rather than a definition.
   const STORY_HEADINGS = /^(history|origins?|construction|background|early history|founding|etymology and history|development)$/i;
